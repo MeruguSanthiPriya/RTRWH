@@ -436,8 +436,8 @@ def download_report(entry_id):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             # Let fpdf2 find the bundled DejaVu font file. This is cross-platform.
-            self.add_font('DejaVu', '', 'DejaVuSans.ttf')
-            self.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf')
+            self.add_font('DejaVu', '', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')
+            self.add_font('DejaVu', 'B', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf')
             self.set_font('DejaVu', '', 12)
 
         def header(self):
