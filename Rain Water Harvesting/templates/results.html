@@ -428,6 +428,31 @@
       background: rgba(34, 211, 238, 0.3);
       border-color: rgba(34, 211, 238, 0.5);
     }
+
+    /* New button styles */
+    .btn-download, .btn-map-view {
+      display: inline-block;
+      background-color: #0056b3;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      text-align: center;
+      font-weight: 500;
+      text-decoration: none;
+      border-radius: 5px;
+      transition: background-color 0.3s ease;
+      margin-left: 10px; /* Add some space between buttons */
+    }
+
+    .btn-map-view {
+      background-color: #28a745; /* A different color for distinction */
+    }
+
+    .btn-download:hover, .btn-map-view:hover {
+      background-color: #004494;
+    }
+    .btn-map-view:hover {
+      background-color: #218838;
+    }
     
     /* Action buttons container */
     .action-buttons {
@@ -994,6 +1019,11 @@
       <a href="{{ url_for('download_report', entry_id=user_data.id) }}" class="glass-button primary">
         <i class="fas fa-download"></i>
         <span data-translate-key="download_pdf_report">Download PDF Report</span>
+      </a>
+      
+      <a href="{{ url_for('interactive_map_page', entry_id=user_data.id) }}" class="btn-map-view">
+        <i class="fas fa-map"></i>
+        <span data-translate-key="view_interactive_map">View Interactive Map</span>
       </a>
       
       <a href="{{ url_for('subsidy_checker_page') }}?state={{ location_data.State }}&plotSize={{ (user_data.rooftop_area + user_data.open_space_area)|round }}&location={{ 'urban' if 'urban' in user_data.location_name.lower() or 'city' in user_data.location_name.lower() else 'rural' }}&buildingType={{ user_data.property_type.lower().replace('institutional', 'government') }}" class="glass-button">

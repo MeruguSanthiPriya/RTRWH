@@ -74,7 +74,7 @@ def derive_region_categories(df):
         6: 'Supplementary Only'
     }
     df_copy['RWH_Category_Name'] = df_copy['RWH_Category'].map(cat_map)
-    return df_copy[['Region_Name', 'State', 'Latitude', 'Longitude', 'Rainfall_mm', 'Soil_Type', 'Infiltration_Rate_mm_per_hr', 'Groundwater_Depth_m', 'RWH_Category', 'RWH_Category_Name']]
+    return df_copy[['Region_Name', 'State', 'Latitude', 'Longitude', 'Rainfall_mm', 'Soil_Type', 'Aquifer_Type', 'Infiltration_Rate_mm_per_hr', 'Groundwater_Depth_m', 'RWH_Category', 'RWH_Category_Name']]
 
 
 @app.route('/api/regions_categories')
@@ -700,30 +700,35 @@ def admin_delete_user(user_id):
 @app.route('/admin/analytics')
 @admin_required
 def admin_analytics():
-    # Get analytics data
-    analytics_data = {
-        'user_growth': db.session.query(
-            db.func.date(UserInput.created_at).label('date'),
-            db.func.count(UserInput.id).label('count')
-        ).group_by('date').order_by('date').all(),
-        
-        'location_distribution': db.session.query(
-            UserInput.location_name,
-            db.func.count(UserInput.location_name).label('count')
-        ).group_by(UserInput.location_name).order_by(db.text('count DESC')).limit(10).all(),
-        
-        'property_types': db.session.query(
-            UserInput.property_type,
-            db.func.count(UserInput.property_type).label('count')
-        ).group_by(UserInput.property_type).order_by(db.text('count DESC')).all(),
-        
-        'roof_types': db.session.query(
-            UserInput.roof_type,
-            db.func.count(UserInput.roof_type).label('count')
-        ).group_by(UserInput.roof_type).order_by(db.text('count DESC')).all()
-    }
-    
+    analytics_data = get_analytics_data()
     return render_template('admin/analytics.html', analytics=analytics_data)
+
+@app.route('/interactive-map')
+@app.route('/interactive-map/<int:entry_id>')
+def interactive_map_page(entry_id=None):
+    """Serves the interactive map page, focusing on a single location if entry_id is provided."""
+    user_location_details = None
+    nearest_location_data = None
+
+    if entry_id:
+        user_data = UserInput.query.get(entry_id)
+        if user_data:
+            # Find the single nearest data point from the CSV
+            if user_data.user_lat and user_data.user_lon:
+                nearest_location_data = get_nearest_location(user_data.user_lat, user_data.user_lon)
+            else: # Fallback to manual location name if no GPS
+                nearest_location_data = get_mock_location_data(user_data.location_name)
+
+            # Create a new object for the user's location that includes the derived environmental data
+            if nearest_location_data and user_data.user_lat and user_data.user_lon:
+                user_location_details = nearest_location_data.copy() # Start with all data from nearest point
+                user_location_details['Latitude'] = user_data.user_lat
+                user_location_details['Longitude'] = user_data.user_lon
+                user_location_details['Region_Name'] = "Your Location" # Label it clearly
+
+    # Pass both the user's detailed location and the nearest CSV point
+    return render_template('interactive_map.html', user_location=user_location_details, nearest_location=nearest_location_data)
+
 
 @app.route('/admin/export/users')
 @admin_required

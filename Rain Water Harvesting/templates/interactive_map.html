@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive RWH Data Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+        }
+        #map {
+            height: 100vh;
+            width: 100vw;
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+        }
+        .leaflet-popup-content {
+            margin: 15px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .leaflet-popup-content h3 {
+            margin: 0 0 10px;
+            font-size: 16px;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        .leaflet-popup-content p {
+            margin: 5px 0;
+        }
+        .leaflet-popup-content strong {
+            color: #555;
+        }
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .map-controls h3 {
+            margin: 0 0 10px;
+            font-size: 16px;
+        }
+        .control-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .control-buttons label {
+            display: block;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .control-buttons input[type="radio"] {
+            display: none;
+        }
+        .control-buttons input[type="radio"]:checked + label {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            max-width: 200px;
+        }
+        .legend h4 {
+            margin: 0 0 10px;
+            font-size: 14px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .legend-color {
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+            border: 1px solid #ccc;
+            border-radius: 50%; /* Make legend colors circles */
+        }
+
+        /* 3D Bubble Effect for Map Markers */
+        .map-marker-bubble {
+            transition: all 0.2s ease-in-out;
+            filter: drop-shadow(3px 5px 4px rgba(0,0,0,0.4));
+        }
+        .map-marker-bubble:hover {
+            filter: drop-shadow(5px 8px 6px rgba(0,0,0,0.5));
+        }
+
+        /* Seasonal Effects */
+        .monsoon-overlay {
+            background: linear-gradient(45deg, rgba(34, 211, 238, 0.1), rgba(6, 182, 212, 0.1));
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        .summer-overlay {
+            background: linear-gradient(45deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.1));
+        }
+
+        /* 3D Terrain Container */
+        #terrain-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 500;
+            opacity: 0.7;
+        }
+
+        /* Enhanced Controls */
+        .map-controls {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(34, 211, 238, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            color: white;
+        }
+
+        .control-buttons label {
+            background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(6, 182, 212, 0.1));
+            border: 1px solid rgba(34, 211, 238, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .control-buttons input[type="radio"]:checked + label {
+            background: linear-gradient(135deg, #22d3ee, #06b6d4);
+            box-shadow: 0 4px 15px rgba(34, 211, 238, 0.4);
+            transform: translateY(-1px);
+        }
+
+        /* Enhanced Legend */
+        .legend {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(34, 211, 238, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="map-controls">
+        <h3>Visualize by Layer</h3>
+        <div class="control-buttons" id="layer-controls">
+            <input type="radio" id="rainfall" name="layer" value="rainfall" checked>
+            <label for="rainfall">Rainfall</label>
+
+            <input type="radio" id="aquifer" name="layer" value="aquifer">
+            <label for="aquifer">Aquifer Type</label>
+
+            <input type="radio" id="soil" name="layer" value="soil">
+            <label for="soil">Soil Type</label>
+
+            <input type="radio" id="infiltration" name="layer" value="infiltration">
+            <label for="infiltration">Infiltration Rate</label>
+        </div>
+    </div>
+
+    <div class="legend" id="legend"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const userLocationData = {{ user_location | tojson }};
+            const nearestLocation = {{ nearest_location | tojson }};
+
+            // 1. Initialize the map
+            let map = L.map('map').setView([userLocationData.Latitude, userLocationData.Longitude], 12);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            let geoJsonLayer;
+
+            // 2. Define color schemes and categories
+            const layers = {
+                rainfall: {
+                    name: 'Rainfall Level',
+                    property: 'Rainfall_mm',
+                    categories: [
+                        { range: [0, 500], color: '#ffffcc', label: 'Very Low (<500mm)' },
+                        { range: [500, 750], color: '#a1dab4', label: 'Low (500-750mm)' },
+                        { range: [750, 1000], color: '#41b6c4', label: 'Moderate (750-1000mm)' },
+                        { range: [1000, 2000], color: '#2c7fb8', label: 'High (1000-2000mm)' },
+                        { range: [2000, Infinity], color: '#253494', label: 'Very High (>2000mm)' }
+                    ],
+                    getColor: (value) => {
+                        const category = layers.rainfall.categories.find(c => value >= c.range[0] && value < c.range[1]);
+                        return category ? category.color : '#808080';
+                    }
+                },
+                aquifer: {
+                    name: 'Aquifer Type',
+                    property: 'Aquifer_Type',
+                    categories: [
+                        { value: 'Confined', color: '#fe9929', label: 'Confined' },
+                        { value: 'Unconfined', color: '#43a2ca', label: 'Unconfined' },
+                        { value: 'Other', color: '#bdbdbd', label: 'Other' }
+                    ],
+                    getColor: (value) => {
+                        const category = layers.aquifer.categories.find(c => c.value.toLowerCase() === value.toLowerCase());
+                        return category ? category.color : layers.aquifer.categories.find(c => c.value === 'Other').color;
+                    }
+                },
+                soil: {
+                    name: 'Soil Type',
+                    property: 'Soil_Type',
+                    categories: [
+                        { value: 'Sandy', color: '#fed976', label: 'Sandy' },
+                        { value: 'Loamy', color: '#ae017e', label: 'Loamy' },
+                        { value: 'Clayey', color: '#cc4c02', label: 'Clayey' },
+                        { value: 'Other', color: '#bdbdbd', label: 'Other' }
+                    ],
+                    getColor: (value) => {
+                        const category = layers.soil.categories.find(c => c.value.toLowerCase() === value.toLowerCase());
+                        return category ? category.color : layers.soil.categories.find(c => c.value === 'Other').color;
+                    }
+                },
+                infiltration: {
+                    name: 'Infiltration Rate',
+                    property: 'Infiltration_Rate_mm_per_hr',
+                    categories: [
+                        { range: [0, 10], color: '#fa9fb5', label: 'Low (<10 mm/hr)' },
+                        { range: [10, 15], color: '#7bccc4', label: 'Moderate (10-15 mm/hr)' },
+                        { range: [15, Infinity], color: '#2b8cbe', label: 'High (>15 mm/hr)' }
+                    ],
+                    getColor: (value) => {
+                        const category = layers.infiltration.categories.find(c => value >= c.range[0] && value < c.range[1]);
+                        return category ? category.color : '#808080';
+                    }
+                }
+            };
+
+            // 4. Create GeoJSON features for both locations
+            let features = [];
+            if (userLocationData) {
+                userLocationData.isUser = true;
+                features.push({
+                    type: 'Feature',
+                    properties: userLocationData,
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [userLocationData.Longitude, userLocationData.Latitude]
+                    }
+                });
+            }
+            if (nearestLocation) {
+                features.push({
+                    type: 'Feature',
+                    properties: nearestLocation,
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [nearestLocation.Longitude, nearestLocation.Latitude]
+                    }
+                });
+            }
+
+            if (features.length > 0) {
+                geoJsonLayer = L.geoJSON(features, {
+                    pointToLayer: (feature, latlng) => {
+                        const isUserBubble = feature.properties.isUser;
+                        return L.circleMarker(latlng, {
+                            radius: isUserBubble ? 14 : 10,
+                            weight: isUserBubble ? 3 : 1,
+                            opacity: 1,
+                            fillOpacity: 0.85,
+                            color: isUserBubble ? '#FFD700' : '#333',
+                            className: 'map-marker-bubble'
+                        });
+                    },
+                    onEachFeature: (feature, layer) => {
+                        const props = feature.properties;
+                        const title = props.isUser ? `<h3>${props.Region_Name} (Estimated Data)</h3>` : `<h3>${props.Region_Name}</h3>`;
+                        const popupContent = `
+                            ${title}
+                            <p><strong>State:</strong> ${props.State}</p>
+                            <p><strong>Rainfall:</strong> ${props.Rainfall_mm} mm</p>
+                            <p><strong>Soil Type:</strong> ${props.Soil_Type}</p>
+                            <p><strong>Aquifer Type:</strong> ${props.Aquifer_Type}</p>
+                            <p><strong>Infiltration Rate:</strong> ${props.Infiltration_Rate_mm_per_hr} mm/hr</p>
+                        `;
+                        layer.bindPopup(popupContent);
+
+                        // Enhanced interactions
+                        layer.on('mouseover', function(e) {
+                            e.target.setStyle({
+                                fillOpacity: 0.95,
+                                weight: 4,
+                                color: '#FFD700'
+                            });
+                        });
+                        
+                        layer.on('mouseout', function(e) {
+                            const isUserBubble = e.target.feature.properties.isUser;
+                            e.target.setStyle({
+                                fillOpacity: 0.85,
+                                weight: isUserBubble ? 3 : 1,
+                                color: isUserBubble ? '#FFD700' : '#333'
+                            });
+                        });
+                    }
+                }).addTo(map);
+
+                // Open user's popup by default
+                geoJsonLayer.eachLayer(layer => {
+                    if (layer.feature.properties.isUser) {
+                        layer.openPopup();
+                    }
+                });
+
+                updateMapLayer('rainfall');
+            }
+
+            // 5. Update map layer function
+            function updateMapLayer(layerKey) {
+                const layerConfig = layers[layerKey];
+
+                geoJsonLayer.eachLayer(layer => {
+                    const value = layer.feature.properties[layerConfig.property];
+                    layer.setStyle({
+                        fillColor: layerConfig.getColor(value),
+                        color: layer.feature.properties.isUser ? '#FFD700' : '#333'
+                    });
+                });
+
+                updateLegend(layerKey);
+            }
+
+            // 6. Update legend function
+            function updateLegend(layerKey) {
+                const legendContainer = document.getElementById('legend');
+                const layerConfig = layers[layerKey];
+                
+                let legendHTML = `<h4>${layerConfig.name}</h4>`;
+                layerConfig.categories.forEach(category => {
+                    legendHTML += `
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: ${category.color};"></div>
+                            <span>${category.label || category.value}</span>
+                        </div>
+                    `;
+                });
+                legendContainer.innerHTML = legendHTML;
+            }
+
+            // 7. Event listeners for controls
+            const controls = document.getElementById('layer-controls');
+            controls.addEventListener('change', (event) => {
+                if (event.target.name === 'layer') {
+                    updateMapLayer(event.target.value);
+                }
+            });
+        });
+    </script>
+
+</body>
+</html>
