@@ -438,6 +438,111 @@
       border-radius: 20px;
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
+
+    /* Navbar styling */
+    .results-navbar {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(15px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 1000;
+      transition: all 0.3s ease;
+    }
+
+    .navbar-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .navbar-brand {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #22d3ee;
+      text-decoration: none;
+    }
+
+    .navbar-nav {
+      display: flex;
+      gap: 1.5rem;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .nav-link {
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      font-weight: 500;
+      padding: 0.5rem 0;
+      position: relative;
+      transition: color 0.3s ease;
+    }
+
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: #22d3ee;
+      transition: width 0.3s ease;
+    }
+
+    .nav-link:hover, .nav-link.active {
+      color: #ffffff;
+    }
+
+    .nav-link:hover::after, .nav-link.active::after {
+      width: 100%;
+    }
+
+    .nav-link i {
+      margin-right: 8px;
+      width: 20px; /* Align text by giving icon a fixed width */
+      text-align: center;
+    }
+
+    .navbar-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    @media (max-width: 992px) {
+      .navbar-nav {
+        display: none;
+        flex-direction: column;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        background: rgba(15, 23, 42, 0.95);
+        padding: 1rem 0;
+      }
+
+      .navbar-nav.active {
+        display: flex;
+      }
+
+      .nav-item {
+        text-align: center;
+      }
+
+      .navbar-toggle {
+        display: block;
+      }
+    }
     
     /* Responsive design */
     @media (max-width: 768px) {
@@ -450,6 +555,9 @@
         gap: 1rem;
       }
       .glass-button { width: 100%; justify-content: center; }
+      body {
+        padding-top: 60px; /* Adjust for fixed navbar */
+      }
     }
     
     /* Print styles */
@@ -469,6 +577,24 @@
   <!-- Background particles -->
   <div class="bg-particles" id="particles"></div>
 
+  <!-- Navigation Bar -->
+  <nav class="results-navbar">
+    <div class="navbar-container">
+      <a href="#" class="navbar-brand">RWH Report</a>
+      <button class="navbar-toggle" id="navbarToggle">
+        <i class="fas fa-bars"></i>
+      </button>
+      <ul class="navbar-nav" id="navbarNav">
+        <li class="nav-item"><a href="#property-details" class="nav-link"><i class="fas fa-home"></i> Property</a></li>
+        <li class="nav-item"><a href="#location-analysis" class="nav-link"><i class="fas fa-globe-asia"></i> Location</a></li>
+        <li class="nav-item"><a href="#hydrogeological" class="nav-link"><i class="fas fa-layer-group"></i> Hydrogeology</a></li>
+        <li class="nav-item"><a href="#feasibility" class="nav-link"><i class="fas fa-calculator"></i> Feasibility</a></li>
+        <li class="nav-item"><a href="#recommendations" class="nav-link"><i class="fas fa-lightbulb"></i> Recommendations</a></li>
+        <li class="nav-item"><a href="#financial" class="nav-link"><i class="fas fa-chart-pie"></i> Financials</a></li>
+      </ul>
+    </div>
+  </nav>
+
   <div class="container">
     <!-- Enhanced Header -->
     <div class="report-header animate-fadeInUp">
@@ -487,7 +613,7 @@
     </div>
 
     <!-- User Details -->
-    <div class="report-card animate-slideInLeft">
+    <div class="report-card animate-slideInLeft" id="property-details">
       <div class="section-header">
         <div class="section-icon">
           <i class="fas fa-user-circle"></i>
@@ -530,7 +656,7 @@
     </div>
 
     <!-- Location Analysis -->
-    <div class="report-card animate-slideInRight">
+    <div class="report-card animate-slideInRight" id="location-analysis">
       <div class="section-header">
         <div class="section-icon">
           <i class="fas fa-globe-asia"></i>
@@ -571,7 +697,7 @@
     </div>
 
     <!-- Hydrogeological Data -->
-    <div class="report-card animate-fadeInUp">
+    <div class="report-card animate-fadeInUp" id="hydrogeological">
       <div class="section-header">
         <div class="section-icon">
           <i class="fas fa-layer-group"></i>
@@ -609,7 +735,7 @@
     </div>
 
     <!-- Feasibility Results -->
-    <div class="report-card animate-slideInLeft">
+    <div class="report-card animate-slideInLeft" id="feasibility">
       <div class="section-header">
         <div class="section-icon">
           <i class="fas fa-calculator"></i>
@@ -621,12 +747,12 @@
         <div class="info-item">
           <div class="icon"><i class="fas fa-cloud-rain"></i></div>
           <div class="label" data-translate-key="annual_harvest_potential_label">Annual Harvest Potential</div>
-          <div class="value">{{ "{:,.0f}".format(analysis.runoff_data.annual_liters) }} <span data-translate-key="liters_unit">Liters</span></div>
+          <div class="value>{{ "{:,.0f}".format(analysis.runoff_data.annual_liters) }} <span data-translate-key="liters_unit">Liters</span></div>
         </div>
         <div class="info-item">
           <div class="icon"><i class="fas fa-home"></i></div>
           <div class="label" data-translate-key="household_demand_label">Household Demand</div>
-          <div class="value">{{ "{:,.0f}".format(analysis.annual_demand) }} <span data-translate-key="liters_unit">Liters</span></div>
+          <div class="value>{{ "{:,.0f}".format(analysis.annual_demand) }} <span data-translate-key="liters_unit">Liters</span></div>
         </div>
         <div class="info-item">
           <div class="icon"><i class="fas fa-percentage"></i></div>
@@ -665,7 +791,7 @@
     </div>
 
     <!-- Recommendations -->
-    <div class="report-card animate-fadeInUp">
+    <div class="report-card animate-fadeInUp" id="recommendations">
       <div class="section-header">
         <div class="section-icon">
           <i class="fas fa-lightbulb"></i>
@@ -819,7 +945,7 @@
    
 
     <!-- Financial Analysis -->
-    <div class="report-card animate-slideInRight">
+    <div class="report-card animate-slideInRight" id="financial">
       <div class="section-header">
         <div class="section-icon">
           <i class="fas fa-chart-pie"></i>
@@ -867,7 +993,7 @@
       
       <a href="{{ url_for('download_report', entry_id=user_data.id) }}" class="glass-button primary">
         <i class="fas fa-download"></i>
-        <span data-translate-key="download_pdf_btn">Download PDF Report</span>
+        <span data-translate-key="download_pdf_report">Download PDF Report</span>
       </a>
       
       <a href="{{ url_for('subsidy_checker_page') }}?state={{ location_data.State }}&plotSize={{ (user_data.rooftop_area + user_data.open_space_area)|round }}&location={{ 'urban' if 'urban' in user_data.location_name.lower() or 'city' in user_data.location_name.lower() else 'rural' }}&buildingType={{ user_data.property_type.lower().replace('institutional', 'government') }}" class="glass-button">
@@ -894,6 +1020,72 @@
   </div>
 
   <script>
+    // Navbar functionality
+    function toggleNavbar() {
+      const navbarNav = document.getElementById('navbarNav');
+      navbarNav.classList.toggle('active');
+    }
+
+    function smoothScrollTo(targetId) {
+      const targetElement = document.getElementById(targetId);
+      if (targetElement) {
+        const navbarHeight = document.querySelector('.results-navbar').offsetHeight;
+        const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - navbarHeight;
+        
+        window.scrollTo({
+          top: targetPosition,
+          behavior: 'smooth'
+        });
+      }
+    }
+
+    function updateActiveNavLink() {
+      const sections = document.querySelectorAll('.report-card[id]');
+      const navLinks = document.querySelectorAll('.nav-link');
+      const navbarHeight = document.querySelector('.results-navbar').offsetHeight;
+
+      let currentSectionId = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop - navbarHeight - 50;
+        if (window.scrollY >= sectionTop) {
+          currentSectionId = section.getAttribute('id');
+        }
+      });
+
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === `#${currentSectionId}`) {
+          link.classList.add('active');
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const navbarToggle = document.getElementById('navbarToggle');
+      if(navbarToggle) {
+        navbarToggle.addEventListener('click', toggleNavbar);
+      }
+
+      const navLinks = document.querySelectorAll('.nav-link');
+      navLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+          const targetId = this.getAttribute('href').substring(1);
+          smoothScrollTo(targetId);
+          
+          // Close mobile menu on click
+          const navbarNav = document.getElementById('navbarNav');
+          if (navbarNav.classList.contains('active')) {
+            navbarNav.classList.remove('active');
+          }
+        });
+      });
+
+      window.addEventListener('scroll', updateActiveNavLink);
+      updateActiveNavLink(); // Initial check
+    });
+
+
     // Create background particles
     function createParticles() {
       const particlesContainer = document.getElementById('particles');
