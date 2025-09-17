@@ -697,6 +697,68 @@ def admin_delete_user(user_id):
     flash(f'User {user.name} has been deleted successfully.', 'success')
     return redirect(url_for('admin_users'))
 
+def get_analytics_data():
+    """
+    Fetches and processes data for the analytics dashboard.
+    This version performs aggregation in Python to avoid database-specific syntax.
+    """
+    # 1. Signups over time (by month)
+    signups_by_month = {}
+    all_signups = UserInput.query.with_entities(UserInput.created_at).all()
+    for signup in all_signups:
+        # Ensure created_at is a datetime object
+        if isinstance(signup.created_at, datetime):
+            month_key = signup.created_at.strftime('%Y-%m')
+            signups_by_month[month_key] = signups_by_month.get(month_key, 0) + 1
+
+    # Sort by key (date) to ensure chronological order
+    sorted_signups = sorted(signups_by_month.items())
+    signup_labels = [item[0] for item in sorted_signups]
+    signup_values = [item[1] for item in sorted_signups]
+
+    # 2. Property types distribution
+    property_types_q = db.session.query(
+        UserInput.property_type, 
+        db.func.count(UserInput.property_type)
+    ).group_by(UserInput.property_type).order_by(db.func.count(UserInput.property_type).desc()).all()
+    property_labels = [item[0] if item[0] else 'Not Specified' for item in property_types_q]
+    property_values = [item[1] for item in property_types_q]
+
+    # 3. Average rooftop area by property type
+    avg_rooftop_q = db.session.query(
+        UserInput.property_type,
+        db.func.avg(UserInput.rooftop_area)
+    ).group_by(UserInput.property_type).all()
+    avg_rooftop_labels = [item[0] if item[0] else 'Not Specified' for item in avg_rooftop_q]
+    avg_rooftop_values = [round(item[1], 2) if item[1] else 0 for item in avg_rooftop_q]
+
+    # 4. Geographic distribution (top 10 cities)
+    top_cities_q = db.session.query(
+        UserInput.location_name,
+        db.func.count(UserInput.location_name)
+    ).group_by(UserInput.location_name).order_by(db.func.count(UserInput.location_name).desc()).limit(10).all()
+    city_labels = [item[0] for item in top_cities_q]
+    city_values = [item[1] for item in top_cities_q]
+
+    return {
+        'signups_over_time': {
+            'labels': signup_labels,
+            'data': signup_values
+        },
+        'property_type_distribution': {
+            'labels': property_labels,
+            'data': property_values
+        },
+        'avg_rooftop_area': {
+            'labels': avg_rooftop_labels,
+            'data': avg_rooftop_values
+        },
+        'geographic_distribution': {
+            'labels': city_labels,
+            'data': city_values
+        }
+    }
+
 @app.route('/admin/analytics')
 @admin_required
 def admin_analytics():

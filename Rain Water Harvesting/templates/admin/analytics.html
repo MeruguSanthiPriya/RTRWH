@@ -112,11 +112,6 @@
           <i class="fas fa-home"></i>
           <span>View Site</span>
         </a>
-        
-        <a href="{{ url_for('admin_logout') }}" class="nav-item flex items-center space-x-3 px-4 py-3 text-muted hover:text-white">
-          <i class="fas fa-sign-out-alt"></i>
-          <span>Logout</span>
-        </a>
       </nav>
     </aside>
     
@@ -262,9 +257,9 @@
     new Chart(locationCtx, {
       type: 'doughnut',
       data: {
-        labels: [{% for location, count in analytics.location_distribution %}'{{ location }}'{% if not loop.last %},{% endif %}{% endfor %}],
+        labels: {{ analytics.geographic_distribution.labels | tojson | safe }},
         datasets: [{
-          data: [{% for location, count in analytics.location_distribution %}{{ count }}{% if not loop.last %},{% endif %}{% endfor %}],
+          data: {{ analytics.geographic_distribution.data | tojson | safe }},
           backgroundColor: [
             'rgba(34, 211, 238, 0.8)',
             'rgba(59, 130, 246, 0.8)',
@@ -298,10 +293,10 @@
     new Chart(propertyCtx, {
       type: 'bar',
       data: {
-        labels: [{% for property_type, count in analytics.property_types %}{% if property_type %}'{{ property_type }}'{% if not loop.last %},{% endif %}{% endif %}{% endfor %}],
+        labels: {{ analytics.property_type_distribution.labels | tojson | safe }},
         datasets: [{
           label: 'Count',
-          data: [{% for property_type, count in analytics.property_types %}{% if property_type %}{{ count }}{% if not loop.last %},{% endif %}{% endif %}{% endfor %}],
+          data: {{ analytics.property_type_distribution.data | tojson | safe }},
           backgroundColor: 'rgba(34, 197, 94, 0.8)',
           borderColor: 'rgba(34, 197, 94, 1)',
           borderWidth: 1
@@ -331,14 +326,14 @@
       }
     });
     
-    // Roof Types Chart
+    // Average Rooftop Area Chart
     const roofCtx = document.getElementById('roofChart').getContext('2d');
     new Chart(roofCtx, {
       type: 'pie',
       data: {
-        labels: [{% for roof_type, count in analytics.roof_types %}{% if roof_type %}'{{ roof_type }}'{% if not loop.last %},{% endif %}{% endif %}{% endfor %}],
+        labels: {{ analytics.avg_rooftop_area.labels | tojson | safe }},
         datasets: [{
-          data: [{% for roof_type, count in analytics.roof_types %}{% if roof_type %}{{ count }}{% if not loop.last %},{% endif %}{% endif %}{% endfor %}],
+          data: {{ analytics.avg_rooftop_area.data | tojson | safe }},
           backgroundColor: [
             'rgba(251, 146, 60, 0.8)',
             'rgba(168, 85, 247, 0.8)',
@@ -364,15 +359,15 @@
       }
     });
     
-    // User Growth Chart (simplified for now)
+    // User Growth Chart
     const growthCtx = document.getElementById('growthChart').getContext('2d');
     new Chart(growthCtx, {
       type: 'line',
       data: {
-        labels: [{% for date, count in analytics.user_growth %}'{{ date }}'{% if not loop.last %},{% endif %}{% endfor %}],
+        labels: {{ analytics.signups_over_time.labels | tojson | safe }},
         datasets: [{
           label: 'New Users',
-          data: [{% for date, count in analytics.user_growth %}{{ count }}{% if not loop.last %},{% endif %}{% endfor %}],
+          data: {{ analytics.signups_over_time.data | tojson | safe }},
           borderColor: 'rgba(34, 211, 238, 1)',
           backgroundColor: 'rgba(34, 211, 238, 0.1)',
           tension: 0.4,
