@@ -6,3 +6,4 @@ pandas
 fpdf2
 bcrypt
 python-dotenv
+requests

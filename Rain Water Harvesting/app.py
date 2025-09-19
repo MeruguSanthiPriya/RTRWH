@@ -10,6 +10,7 @@ from datetime import datetime
 import bcrypt
 from functools import wraps
 from recommendations import determine_category, calculate_structure_dimensions, estimate_costs_and_payback, get_purification_recommendations
+import requests
 
 # Initialize the Flask app
 app = Flask(__name__)
@@ -141,6 +142,30 @@ class AdminUser(UserMixin, db.Model):
         """Check if the provided password matches the hash"""
         password_bytes = password.encode('utf-8')
         return bcrypt.checkpw(password_bytes, self.password_hash.encode('utf-8'))
+
+# --- Geological Data Model ---
+class GeoData(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    region_name = db.Column(db.String(120), nullable=False)
+    state = db.Column(db.String(120), nullable=False)
+    latitude = db.Column(db.Float, nullable=False)
+    longitude = db.Column(db.Float, nullable=False)
+    rainfall_mm = db.Column(db.Float)
+    groundwater_depth_m = db.Column(db.Float)
+    aquifer_type = db.Column(db.String(80))
+    aquifer_depth_min_m = db.Column(db.Float)
+    aquifer_depth_max_m = db.Column(db.Float)
+    aquifer_thickness_m = db.Column(db.Float)
+    remarks = db.Column(db.Text)
+    soil_type = db.Column(db.String(80))
+    infiltration_rate_mm_per_hr = db.Column(db.Float)
+    soil_permability_class = db.Column(db.String(50))
+    water_quality = db.Column(db.String(80))
+    water_cost_per_liter = db.Column(db.Float, default=0.16)
+
+    def to_dict(self):
+        """Converts the object to a dictionary."""
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 # Flask-Login user loader
 @login_manager.user_loader
@@ -387,31 +412,29 @@ def results_page(entry_id):
     # Retrieve user data from the database
     user_data = UserInput.query.get_or_404(entry_id)
     
+    # Check if user has provided GPS coordinates
+    if not user_data.user_lat or not user_data.user_lon:
+        return "Error: GPS coordinates are required for API-based analysis.", 400
+
     try:
-        # Determine the nearest mock location using GPS or manual name
-        if user_data.user_lat and user_data.user_lon:
-            nearest_city_data = get_nearest_location(user_data.user_lat, user_data.user_lon)
-        else:
-            nearest_city_data = get_mock_location_data(user_data.location_name, user_data.user_lat, user_data.user_lon)
-            # If location is found manually, distance is not calculated, so set to 0.
-            if nearest_city_data:
-                nearest_city_data['distance'] = 0
+        # Fetch combined data from all APIs using user's GPS
+        location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
             
-    except FileNotFoundError:
-        error_message = "Server configuration error: The location data file could not be found."
+    except Exception as e:
+        error_message = f"Server error during API data retrieval: {e}"
         print(f"ERROR: {error_message}")
         return error_message, 500
     
-    if not nearest_city_data:
-        return "Error: Could not find data for your location.", 404
+    if not location_analysis_data:
+        return "Error: Could not retrieve data for your location from APIs.", 404
     
-    # Perform comprehensive feasibility analysis
-    comprehensive_analysis = calculate_comprehensive_feasibility(nearest_city_data, user_data)
+    # Perform comprehensive feasibility analysis using the combined API data
+    comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
     
     # Pass all data to the HTML template
     return render_template('results.html',
                          user_data=user_data,
-                         location_data=nearest_city_data,
+                         location_data=location_analysis_data,
                          analysis=comprehensive_analysis)
 
 @app.route('/download_report/<int:entry_id>')
@@ -419,15 +442,17 @@ def download_report(entry_id):
     # Retrieve user data and perform analysis (same logic as results_page)
     user_data = UserInput.query.get_or_404(entry_id)
     
-    if user_data.user_lat and user_data.user_lon:
-        location_data = get_nearest_location(user_data.user_lat, user_data.user_lon)
-    else:
-        location_data = get_mock_location_data(user_data.location_name, user_data.user_lat, user_data.user_lon)
-        if location_data:
-            location_data['distance'] = 0
+    if not user_data.user_lat or not user_data.user_lon:
+        return "Error: GPS coordinates are required for API-based analysis.", 400
+
+    try:
+        # Fetch combined data from all APIs using user's GPS
+        location_data = get_api_data(user_data.user_lat, user_data.user_lon)
+    except Exception as e:
+        return f"Error during API data retrieval: {e}", 500
 
     if not location_data:
-        return "Error: Could not find data for your location.", 404
+        return "Error: Could not find data for your location from APIs.", 404
 
     analysis = calculate_comprehensive_feasibility(location_data, user_data)
 
@@ -824,10 +849,210 @@ def admin_export_users():
     
     return response
 
+# --- API Configuration ---
+# IMPORTANT: Replace with your actual API key from OpenWeatherMap
+OPENWEATHERMAP_API_KEY = os.environ.get('OPENWEATHERMAP_API_KEY', '32dc29dca01bde623300f501d45e42dd')
+SOILGRIDS_API_ENDPOINT = "https://rest.isric.org/soilgrids/v2.0/properties/query"
+
+def get_rainfall_from_api(lat, lon, api_key):
+    """
+    Fetches annual rainfall data from OpenWeatherMap for a given lat/lon.
+    This uses the Climate Normals API to get monthly averages and sums them.
+    """
+    try:
+        # API endpoint for climate normals (monthly averages)
+        url = f"https://api.openweathermap.org/data/2.5/climate/month?lat={lat}&lon={lon}&appid={api_key}"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+        data = response.json()
+
+        # Sum up the monthly precipitation values to get an annual estimate
+        if 'list' in data and data['list']:
+            # The 'precipitation' value is typically in mm
+            total_precipitation = sum(month.get('precipitation', {}).get('value', 0) for month in data['list'])
+            return total_precipitation if total_precipitation > 0 else 1000  # Return a fallback if sum is 0
+        return 1000  # Default fallback if data structure is unexpected
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching rainfall data from OpenWeatherMap: {e}")
+        return 1000  # Return a default value on error
+
+def get_soil_data_from_api(lat, lon):
+    """
+    Fetches soil properties from the ISRIC SoilGrids API.
+    """
+    params = {
+        "lat": lat,
+        "lon": lon,
+        "properties": "clay,sand,silt", # Request clay, sand, and silt content
+        "depths": "0-5cm", # Focus on topsoil
+    }
+    try:
+        response = requests.get(SOILGRIDS_API_ENDPOINT, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        properties = data.get('properties', {}).get('layers', [{}])[0].get('depths', [{}])[0].get('values', {})
+        
+        # Extract mean values, with fallbacks
+        clay_content = properties.get('clay', {}).get('mean', 250) / 10  # Convert from g/kg to %
+        sand_content = properties.get('sand', {}).get('mean', 400) / 10
+        silt_content = properties.get('silt', {}).get('mean', 350) / 10
+
+        # Determine soil type based on composition
+        if sand_content > 50:
+            soil_type = "Sandy"
+            infiltration_rate = 20
+        elif clay_content > 40:
+            soil_type = "Clayey"
+            infiltration_rate = 5
+        else:
+            soil_type = "Loamy"
+            infiltration_rate = 15
+
+        return {
+            "Soil_Type": soil_type,
+            "Infiltration_Rate_mm_per_hr": infiltration_rate,
+            "Soil_Permability_Class": "High" if infiltration_rate > 15 else "Medium"
+        }
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching soil data from ISRIC: {e}")
+        return {
+            "Soil_Type": "Loamy",
+            "Infiltration_Rate_mm_per_hr": 15,
+            "Soil_Permability_Class": "Medium"
+        }
+
+def get_api_data(lat, lon):
+    """
+    Main function to fetch and combine data from all external APIs.
+    For now, it combines live API data with fallback data from the nearest CSV point
+    for fields not yet covered by live APIs (like groundwater).
+    """
+    # 1. Get live rainfall data
+    rainfall = get_rainfall_from_api(lat, lon, OPENWEATHERMAP_API_KEY)
+    
+    # 2. Get live soil data
+    soil_data = get_soil_data_from_api(lat, lon)
+    
+    # 3. Get fallback data from the database for groundwater, aquifer, etc.
+    fallback_data = get_nearest_geo_data_from_db(lat, lon)
+    if not fallback_data:
+        # If DB lookup fails, create a default fallback structure
+        fallback_data = {
+            'groundwater_depth_m': 10, 'aquifer_type': 'Unconfined', 'aquifer_depth_min_m': 10,
+            'aquifer_depth_max_m': 30, 'aquifer_thickness_m': 20, 'water_quality': 'Good',
+            'remarks': 'No fallback data available in database', 'region_name': 'User Location', 'distance': 0,
+            'water_cost_per_liter': 0.16
+        }
+
+    # 4. Combine all data into a single dictionary
+    combined_data = {
+        "Rainfall_mm": rainfall,
+        "Soil_Type": soil_data["Soil_Type"],
+        "Infiltration_Rate_mm_per_hr": soil_data["Infiltration_Rate_mm_per_hr"],
+        "Soil_Permability_Class": soil_data["Soil_Permability_Class"],
+        # --- Fields from database fallback ---
+        "Groundwater_Depth_m": fallback_data.get('groundwater_depth_m', 10),
+        "Aquifer_Type": fallback_data.get('aquifer_type', 'Unconfined'),
+        "Aquifer_Depth_Min_m": fallback_data.get('aquifer_depth_min_m', 10),
+        "Aquifer_Depth_Max_m": fallback_data.get('aquifer_depth_max_m', 30),
+        "Aquifer_Thickness_m": fallback_data.get('aquifer_thickness_m', 20),
+        "Water_Quality": fallback_data.get('water_quality', 'Good'),
+        "Remarks": fallback_data.get('remarks', 'Data from nearest station'),
+        "Region_Name": fallback_data.get('region_name', 'User Location'),
+        "distance": fallback_data.get('distance', 0),
+        "Runoff_Coefficient": 0.85, # Default, can be adjusted based on roof type later
+        "Water_Cost_per_Liter": fallback_data.get('water_cost_per_liter', 0.16)
+    }
+    
+    return combined_data
+
+def load_csv_to_db():
+    """
+    Loads data from the mock_location_data.csv file into the GeoData table.
+    This function should be run once to populate the database.
+    It checks if data already exists to prevent duplicate entries.
+    """
+    with app.app_context():
+        if GeoData.query.first() is not None:
+            print("Geological data already exists in the database. Skipping import.")
+            return
+
+        print("Importing geological data from CSV to database...")
+        try:
+            df = pd.read_csv(CSV_FILE_PATH)
+            # Rename columns to match the GeoData model exactly
+            df.rename(columns={
+                'Region_Name': 'region_name',
+                'State': 'state',
+                'Latitude': 'latitude',
+                'Longitude': 'longitude',
+                'Rainfall_mm': 'rainfall_mm',
+                'Groundwater_Depth_m': 'groundwater_depth_m',
+                'Aquifer_Type': 'aquifer_type',
+                'Aquifer_Depth_Min_m': 'aquifer_depth_min_m',
+                'Aquifer_Depth_Max_m': 'aquifer_depth_max_m',
+                'Aquifer_Thickness_m': 'aquifer_thickness_m',
+                'Remarks': 'remarks',
+                'Soil_Type': 'soil_type',
+                'Infiltration_Rate_mm_per_hr': 'infiltration_rate_mm_per_hr',
+                'Soil_Permability_Class': 'soil_permability_class',
+                'Water_Quality': 'water_quality',
+                'Water_Cost_per_Liter': 'water_cost_per_liter'
+            }, inplace=True)
+
+            # Ensure all columns exist, fill missing with None (which becomes NULL in DB)
+            for col in GeoData.__table__.columns.keys():
+                if col not in df.columns and col != 'id':
+                    df[col] = None
+
+            # Convert to records and add to database
+            records = df.to_dict(orient='records')
+            for record in records:
+                # Filter out any keys that are not in the model
+                filtered_record = {k: v for k, v in record.items() if k in GeoData.__table__.columns.keys()}
+                geo_entry = GeoData(**filtered_record)
+                db.session.add(geo_entry)
+            
+            db.session.commit()
+            print(f"Successfully imported {len(records)} records into the GeoData table.")
+        except FileNotFoundError:
+            print(f"CRITICAL ERROR: Could not find '{CSV_FILE_PATH}' to populate the database.")
+        except Exception as e:
+            print(f"An error occurred during CSV import: {e}")
+            db.session.rollback()
+
+def get_nearest_geo_data_from_db(lat, lon):
+    """
+    Finds the nearest geological data point from the GeoData table in the database.
+    """
+    # This is a simplified distance calculation. For production, consider using PostGIS for efficiency.
+    all_geo_data = GeoData.query.all()
+    if not all_geo_data:
+        return None
+
+    min_dist = float('inf')
+    nearest_data = None
+
+    for location in all_geo_data:
+        dist = haversine(lat, lon, location.latitude, location.longitude)
+        if dist < min_dist:
+            min_dist = dist
+            nearest_data = location
+
+    if nearest_data:
+        result = nearest_data.to_dict()
+        result['distance'] = min_dist
+        return result
+    return None
+
 if __name__ == '__main__':
     with app.app_context():
         # Create the database tables if they don't exist
         db.create_all()
+        
+        # Load data from CSV into the database
+        load_csv_to_db()
         
         # Create default admin user if no admin exists
         if not AdminUser.query.first():
