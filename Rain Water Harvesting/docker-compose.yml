@@ -1,0 +1,16 @@
+services:
+  postgis:
+    image: postgis/postgis:13-3.1-alpine
+    container_name: postgis
+    environment:
+      POSTGRES_DB: rtrwh_gis
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+      - ./data:/data
+
+volumes:
+  postgis_data:

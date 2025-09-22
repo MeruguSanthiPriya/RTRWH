@@ -1,7 +1,6 @@
 import pandas as pd
 from math import radians, sin, cos, sqrt, asin
 from flask import Flask, request, render_template, redirect, url_for, jsonify, send_from_directory, make_response, session, flash
-from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import os
@@ -11,6 +10,10 @@ import bcrypt
 from functools import wraps
 from recommendations import determine_category, calculate_structure_dimensions, estimate_costs_and_payback, get_purification_recommendations
 import requests
+from database import db
+from models import AquiferMaterial # Add other models as you create them
+from geoalchemy2 import WKTElement
+from sqlalchemy import func
 
 # Initialize the Flask app
 app = Flask(__name__)
@@ -20,9 +23,11 @@ CORS(app)  # Allow cross-origin requests from frontend
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'  # Change this in production
 
 # Configure the database file
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///rtrwh_data.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://app_user:password@localhost:5432/rtrwh_gis'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+
+# Initialize the database with the app
+db.init_app(app)
 
 # Initialize Flask-Login
 login_manager = LoginManager()
@@ -945,7 +950,10 @@ def get_api_data(lat, lon):
             'water_cost_per_liter': 0.16
         }
 
-    # 4. Combine all data into a single dictionary
+    # 4. Get aquifer material data from PostGIS
+    aquifer_data = get_aquifer_material_at_location(lat, lon)
+    
+    # 5. Combine all data into a single dictionary
     combined_data = {
         "Rainfall_mm": rainfall,
         "Soil_Type": soil_data["Soil_Type"],
@@ -962,7 +970,11 @@ def get_api_data(lat, lon):
         "Region_Name": fallback_data.get('region_name', 'User Location'),
         "distance": fallback_data.get('distance', 0),
         "Runoff_Coefficient": 0.85, # Default, can be adjusted based on roof type later
-        "Water_Cost_per_Liter": fallback_data.get('water_cost_per_liter', 0.16)
+        "Water_Cost_per_Liter": fallback_data.get('water_cost_per_liter', 0.16),
+        # --- New PostGIS aquifer data ---
+        "Aquifer_Material_State": aquifer_data.get('state_name', 'Unknown') if aquifer_data.get('found') else 'Not Available',
+        "Aquifer_Material_Type": aquifer_data.get('aquifer_type', 'Unknown') if aquifer_data.get('found') else 'Not Available',
+        "Aquifer_Material_Area": aquifer_data.get('area', 0) if aquifer_data.get('found') else 0,
     }
     
     return combined_data
@@ -1045,6 +1057,35 @@ def get_nearest_geo_data_from_db(lat, lon):
         result['distance'] = min_dist
         return result
     return None
+
+def get_aquifer_material_at_location(lat, lon):
+    """
+    Query the PostGIS database to find aquifer material data at a specific latitude and longitude.
+    Returns the aquifer material information if found, None otherwise.
+    """
+    try:
+        # Create a point geometry from the lat/lon coordinates
+        point = WKTElement(f'POINT({lon} {lat})', srid=4326)
+        
+        # Query for aquifer material that contains this point
+        result = db.session.query(AquiferMaterial).filter(
+            func.ST_Contains(AquiferMaterial.geometry, point)
+        ).first()
+        
+        if result:
+            return {
+                'state_name': result.name_of_st,
+                'aquifer_type': result.type_of_aq,
+                'area': result.st_area_sh,
+                'length': result.st_length_,
+                'found': True
+            }
+        else:
+            return {'found': False, 'message': 'No aquifer material data found at this location'}
+            
+    except Exception as e:
+        print(f"Error querying aquifer material data: {e}")
+        return {'found': False, 'message': f'Database error: {str(e)}'}
 
 if __name__ == '__main__':
     with app.app_context():

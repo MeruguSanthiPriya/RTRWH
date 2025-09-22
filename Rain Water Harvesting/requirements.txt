@@ -7,3 +7,10 @@ fpdf2
 bcrypt
 python-dotenv
 requests
+psycopg2-binary
+SQLAlchemy
+GeoAlchemy2
+geopandas
+shapely
+rasterio
+rasterio

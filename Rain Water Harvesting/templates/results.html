@@ -747,11 +747,20 @@
           <div class="value">{{ location_data.Infiltration_Rate_mm_per_hr }} mm/hr</div>
         </div>
         <div class="info-item">
-          <div class="icon"><i class="fas fa-certificate"></i></div>
-          <div class="label" data-translate-key="water_quality_label">Water Quality</div>
-          <div class="value">{{ location_data.Water_Quality }}</div>
+          <div class="icon"><i class="fas fa-map"></i></div>
+          <div class="label">Aquifer Material State</div>
+          <div class="value">{{ location_data.Aquifer_Material_State }}</div>
         </div>
-      </div>
+        <div class="info-item">
+          <div class="icon"><i class="fas fa-layer-group"></i></div>
+          <div class="label">Aquifer Material Type</div>
+          <div class="value">{{ location_data.Aquifer_Material_Type }}</div>
+        </div>
+        <div class="info-item">
+          <div class="icon"><i class="fas fa-expand-arrows-alt"></i></div>
+          <div class="label">Aquifer Material Area</div>
+          <div class="value">{{ "{:,.0f}".format(location_data.Aquifer_Material_Area) if location_data.Aquifer_Material_Area > 0 else "N/A" }} m²</div>
+        </div>
       
       <div class="recommendation status-{{ 'fully' if analysis.safety_check.is_safe else 'not' }}">
         <i class="fas fa-thumbs-up"></i>
