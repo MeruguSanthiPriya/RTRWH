@@ -572,6 +572,24 @@
                   </div>
                 </div>
               </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-secondary mb-2" data-translate-key="data_build_age_label">Building Age</label>
+                <select id="buildingAge" name="building_age" class="glass-input w-full px-4 py-3 rounded-lg">
+                  <option value="">Select building age</option>
+                  <option value="new">New Construction (0-5 years)</option>
+                  <option value="old">Existing Building (5-20 years)</option>
+                  <option value="heritage">Heritage Building (>20 years)</option>
+                </select>
+              </div>
+              
+              <div id="occupancy-field" class="hidden">
+                <label class="block text-sm font-medium text-secondary mb-2" data-translate-key="data_occupancy_label">Average Daily Occupancy</label>
+                <input type="number" id="occupancy" name="occupancy" placeholder="e.g., 150" 
+                       class="glass-input w-full px-4 py-3 rounded-lg">
+                <small class="text-muted text-xs mt-1 block" data-translate-key="data_occupancy_small">Number of people in the building daily (for commercial properties).</small>
+              </div>
+              
               <div>
                 <label class="block text-sm font-medium text-secondary mb-2" data-translate-key="data_use_label">Primary Intended Use of Harvested Water</label>
                 <select id="intendedUse" name="intended_use" class="glass-input w-full px-4 py-3 rounded-lg">

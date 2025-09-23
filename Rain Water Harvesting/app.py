@@ -119,7 +119,7 @@ class UserInput(db.Model):
     roof_type = db.Column(db.String(50))
     property_type = db.Column(db.String(50))  # NEW FIELD
     existing_water_sources = db.Column(db.String(200))  # NEW FIELD
-    budget_preference = db.Column(db.String(50))  # NEW FIELD
+    # budget_preference = db.Column(db.String(50))  # REMOVED - budget option no longer used
     intended_use = db.Column(db.String(100))  # NEW FIELD
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
@@ -325,8 +325,27 @@ def calculate_comprehensive_feasibility(location_data, user_input):
     # Check artificial recharge safety
     safety_check = validate_artificial_recharge_safety(location_data)
     
-    # Determine category
-    category_info = determine_category(roof_area, open_space, rainfall_mm, soil_type, gw_depth, infiltration_rate)
+    # Determine category with enhanced scoring
+    user_preferences = {
+        'complexity': 'balanced'  # Could be enhanced based on user input
+    }
+
+    category_result = determine_category(
+        roof_area, open_space, rainfall_mm, soil_type, gw_depth, infiltration_rate,
+        user_preferences
+    )
+
+    # Extract primary category for backward compatibility
+    category_info = {
+        'category': category_result['primary']['category'].category_id,
+        'name': category_result['primary']['category'].name,
+        'description': category_result['primary']['category'].description,
+        'recommended_structures': category_result['primary']['category'].recommended_structures,
+        'recharge_feasible': category_result['primary']['category'].recharge_feasible,
+        'confidence_score': category_result['primary']['confidence'],
+        'recommendation_reason': category_result['primary']['recommendation_reason'],
+        'alternative_categories': category_result['alternatives']
+    }
     
     # Calculate structure dimensions
     structure_dims = calculate_structure_dimensions(
@@ -1289,23 +1308,48 @@ def get_aquifers():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/aquifer-materials')
-def get_aquifer_materials():
-    """API endpoint to get aquifer material data for the map."""
+@app.route('/api/recommend-category', methods=['POST'])
+def api_recommend_category():
+    """Enhanced API endpoint for category recommendations with scoring and alternatives."""
     try:
-        from models import AquiferMaterial
-        materials = AquiferMaterial.query.limit(500).all()  # Limit for performance
-        
-        data = []
-        for material in materials:
-            data.append({
-                'id': material.id,
-                'state': material.Name_of_St,
-                'type': material.Type_of_Aq,
-                'area': material.st_area_sh,
-                'length': material.st_length_
-            })
-        
-        return jsonify({'materials': data})
+        data = request.get_json()
+
+        # Extract user data
+        user_data = {
+            'roof_area': data.get('roof_area', 100),
+            'open_space': data.get('open_space', 20),
+            'household_size': data.get('household_size', 4)
+        }
+
+        # Extract location data
+        location_data = {
+            'Rainfall_mm': data.get('rainfall', 1000),
+            'Soil_Type': data.get('soil_type', 'Loamy'),
+            'Groundwater_Depth_m': data.get('gw_depth', 10),
+            'Infiltration_Rate_mm_per_hr': data.get('infiltration_rate', 15)
+        }
+
+        # Extract user preferences
+        user_preferences = {
+            'complexity_preference': data.get('complexity_preference', 'balanced')
+        }
+
+        # Get enhanced recommendations
+        from recommendations import get_category_recommendations_with_preferences
+        result = get_category_recommendations_with_preferences(
+            user_data, location_data, user_preferences
+        )
+
+        return jsonify(result)
+
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'error': str(e),
+            'recommended_category': {
+                'id': 1,
+                'name': 'Storage Tank Only',
+                'description': 'Basic storage solution due to processing error',
+                'confidence_score': 0,
+                'recommendation_reason': 'Fallback due to error'
+            }
+        }), 500

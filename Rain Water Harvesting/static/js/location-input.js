@@ -646,3 +646,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// Toggle occupancy field based on property type
+const propertyTypeRadios = document.querySelectorAll('input[name="propertyType"]');
+const occupancyField = document.getElementById('occupancy-field');
+
+propertyTypeRadios.forEach(radio => {
+  radio.addEventListener('change', () => {
+    if (radio.value === 'Commercial' || radio.value === 'Institutional') {
+      occupancyField.classList.remove('hidden');
+    } else {
+      occupancyField.classList.add('hidden');
+    }
+  });
+});
+
+// Initialize map and other components
+initializeMap();
+
+function initializeMap() {
+  // ... existing map initialization code ...
+}
