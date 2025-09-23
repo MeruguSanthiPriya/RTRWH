@@ -172,17 +172,14 @@
     <div class="map-controls">
         <h3>Visualize by Layer</h3>
         <div class="control-buttons" id="layer-controls">
-            <input type="radio" id="rainfall" name="layer" value="rainfall" checked>
-            <label for="rainfall">Rainfall</label>
+            <input type="radio" id="groundwater" name="layer" value="groundwater" checked>
+            <label for="groundwater">Ground Water Stations</label>
 
-            <input type="radio" id="aquifer" name="layer" value="aquifer">
-            <label for="aquifer">Aquifer Type</label>
+            <input type="radio" id="aquifers" name="layer" value="aquifers">
+            <label for="aquifers">Major Aquifers</label>
 
-            <input type="radio" id="soil" name="layer" value="soil">
-            <label for="soil">Soil Type</label>
-
-            <input type="radio" id="infiltration" name="layer" value="infiltration">
-            <label for="infiltration">Infiltration Rate</label>
+            <input type="radio" id="materials" name="layer" value="materials">
+            <label for="materials">Aquifer Materials</label>
         </div>
     </div>
 
@@ -193,8 +190,18 @@
             const userLocationData = {{ user_location | tojson }};
             const nearestLocation = {{ nearest_location | tojson }};
 
+            // Default center if no user location
+            let defaultLat = 20.5937; // Center of India
+            let defaultLon = 78.9629;
+            let defaultZoom = 5;
+
+            // Use user location if available, otherwise use default
+            let centerLat = userLocationData ? userLocationData.Latitude : defaultLat;
+            let centerLon = userLocationData ? userLocationData.Longitude : defaultLon;
+            let zoomLevel = userLocationData ? 12 : defaultZoom;
+
             // 1. Initialize the map
-            let map = L.map('map').setView([userLocationData.Latitude, userLocationData.Longitude], 12);
+            let map = L.map('map').setView([centerLat, centerLon], zoomLevel);
             
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

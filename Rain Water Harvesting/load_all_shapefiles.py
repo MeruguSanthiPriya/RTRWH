@@ -99,7 +99,8 @@ def load_all_shapefiles():
     shapefile_mapping = {
         'Aquif_Mat.shp': 'aquifer_materials',
         'Major_Aquifers.shp': 'major_aquifers',
-        # Add more mappings as needed
+        'Ground_Water_Level_Stations.shp': 'ground_water_level_stations',
+        'Ground_Water_Quality_Stations.shp': 'ground_water_quality_stations'
     }
 
     success_count = 0
@@ -127,8 +128,7 @@ def load_all_shapefiles():
     print(f"Loading complete: {success_count}/{len(shapefiles)} shapefiles loaded successfully")
     print(f"{'='*50}")
 
-    return success_count == len(shapefiles)
 
-if __name__ == "__main__":
-    success = load_all_shapefiles()
-    sys.exit(0 if success else 1)
+if __name__ == '__main__':
+    if not load_all_shapefiles():
+        sys.exit(1)

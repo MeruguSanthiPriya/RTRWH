@@ -37,15 +37,10 @@ login_manager.login_message = 'Please log in to access the admin panel.'
 
 # --- Path Configuration ---
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-CSV_FILE_PATH = os.path.join(BASE_DIR, 'data', 'mock_location_data.csv')
 
 # --- Pre-load Data ---
-# Load location data into memory at startup to avoid repeated file reads
-try:
-    location_df = pd.read_csv(CSV_FILE_PATH)
-except FileNotFoundError:
-    location_df = None
-    print(f"CRITICAL ERROR: Location data file not found at '{CSV_FILE_PATH}'. The application will not be able to provide location-based analysis.")
+# Location data is not available - using database queries instead
+location_df = None
 
 # --- Derived Categories from CSV ---
 def derive_region_categories(df):
@@ -199,32 +194,72 @@ def haversine(lat1, lon1, lat2, lon2):
     return c * r
 
 def get_nearest_location(user_lat, user_lon):
-    """Find the nearest location from the CSV based on user's GPS coordinates."""
-    if location_df is None:
-        return None
-    df = location_df.copy() # Use a copy to avoid modifying the global DataFrame
-    df['distance'] = df.apply(
-        lambda row: haversine(user_lat, user_lon, row['Latitude'], row['Longitude']),
-        axis=1
-    )
-    nearest_row = df.loc[df['distance'].idxmin()]
-    return nearest_row.to_dict()
+    """Find the nearest location from the database based on user's GPS coordinates."""
+    try:
+        # Query ground water level stations for nearest location
+        from models import GroundWaterLevelStation
+        stations = GroundWaterLevelStation.query.all()
+
+        if not stations:
+            return None
+
+        min_distance = float('inf')
+        nearest_station = None
+
+        for station in stations:
+            if station.lat and station.long:
+                distance = haversine(user_lat, user_lon, station.lat, station.long)
+                if distance < min_distance:
+                    min_distance = distance
+                    nearest_station = station
+
+        if nearest_station:
+            return {
+                'Region_Name': nearest_station.station_na or 'Unknown',
+                'State': nearest_station.state_name or 'Unknown',
+                'Latitude': nearest_station.lat,
+                'Longitude': nearest_station.long,
+                'distance': min_distance,
+                'station_code': nearest_station.station_co,
+                'agency': nearest_station.agency_nam,
+                'district': nearest_station.district_n,
+                'basin': nearest_station.basin_name
+            }
+    except Exception as e:
+        print(f"Error finding nearest location: {e}")
+
+    return None
 
 def get_mock_location_data(location_name, user_lat=None, user_lon=None):
-    """Get location data by name from the mock CSV."""
-    if location_df is None:
-        return None
-    for index, row in location_df.iterrows():
-        if row['Region_Name'].lower() in location_name.lower():
-            match_dict = row.to_dict()
+    """Get location data by name from the database."""
+    try:
+        from models import GroundWaterLevelStation
+        # Try to find a station with a matching name
+        stations = GroundWaterLevelStation.query.filter(
+            GroundWaterLevelStation.station_na.ilike(f'%{location_name}%')
+        ).limit(5).all()
+
+        if stations:
+            station = stations[0]  # Take the first match
+            result = {
+                'Region_Name': station.station_na or location_name,
+                'State': station.state_name or 'Unknown',
+                'Latitude': station.lat,
+                'Longitude': station.long,
+                'station_code': station.station_co,
+                'agency': station.agency_nam,
+                'district': station.district_n,
+                'basin': station.basin_name
+            }
             if user_lat and user_lon:
-                match_dict['distance'] = haversine(user_lat, user_lon, match_dict['Latitude'], match_dict['Longitude'])
-            return match_dict
-    
-    match = location_df[location_df['Region_Name'].str.lower() == location_name.lower()]
-    if not match.empty:
-        return match.to_dict('records')[0]
-    return None
+                result['distance'] = haversine(user_lat, user_lon, station.lat, station.long)
+            return result
+
+        # If no match found, return a default location or None
+        return None
+    except Exception as e:
+        print(f"Error getting mock location data: {e}")
+        return None
 
 def calculate_runoff_potential(roof_area_m2, rainfall_mm, runoff_coefficient):
     """Calculate annual runoff generation capacity."""
@@ -859,10 +894,49 @@ def admin_export_users():
 OPENWEATHERMAP_API_KEY = os.environ.get('OPENWEATHERMAP_API_KEY', '32dc29dca01bde623300f501d45e42dd')
 SOILGRIDS_API_ENDPOINT = "https://rest.isric.org/soilgrids/v2.0/properties/query"
 
+def get_location_specific_rainfall_fallback(lat, lon):
+    """
+    Returns location-specific rainfall fallback values based on regional climate patterns in India.
+    Uses latitude/longitude to determine the region and return appropriate average rainfall.
+    """
+    # Define regional rainfall patterns (approximate annual averages in mm)
+    # Adjusted boundaries to better cover Indian geography
+    regional_rainfall = {
+        # North India (Delhi, Punjab, Haryana, UP, Rajasthan border areas)
+        'north': {'lat_range': (26, 35), 'lon_range': (70, 85), 'rainfall': 700},
+        # North-East India (Assam, Meghalaya, etc.)
+        'northeast': {'lat_range': (24, 29), 'lon_range': (85, 98), 'rainfall': 2500},
+        # East India (West Bengal, Odisha, Bihar)
+        'east': {'lat_range': (20, 27), 'lon_range': (82, 90), 'rainfall': 1500},
+        # Central India (Madhya Pradesh, Chhattisgarh)
+        'central': {'lat_range': (18, 26), 'lon_range': (75, 85), 'rainfall': 1000},
+        # West India (Maharashtra, Gujarat, Rajasthan west)
+        'west': {'lat_range': (15, 26), 'lon_range': (68, 76), 'rainfall': 1000},
+        # South India (Kerala, Karnataka, Tamil Nadu, Andhra)
+        'south': {'lat_range': (8, 18), 'lon_range': (70, 85), 'rainfall': 2000},
+        # North-West (Rajasthan dry regions)
+        'northwest': {'lat_range': (24, 30), 'lon_range': (70, 75), 'rainfall': 300},
+    }
+
+    # Determine region based on coordinates
+    for region, data in regional_rainfall.items():
+        lat_min, lat_max = data['lat_range']
+        lon_min, lon_max = data['lon_range']
+
+        if lat_min <= lat <= lat_max and lon_min <= lon <= lon_max:
+            rainfall = data['rainfall']
+            print(f"Location ({lat:.2f}, {lon:.2f}) falls in {region} region - using {rainfall}mm rainfall fallback")
+            return rainfall
+
+    # Default fallback if coordinates don't match any region
+    print(f"Location ({lat:.2f}, {lon:.2f}) not matched to specific region - using 1000mm default")
+    return 1000
+
 def get_rainfall_from_api(lat, lon, api_key):
     """
     Fetches annual rainfall data from OpenWeatherMap for a given lat/lon.
     This uses the Climate Normals API to get monthly averages and sums them.
+    Falls back to location-specific regional averages if API fails.
     """
     try:
         # API endpoint for climate normals (monthly averages)
@@ -875,11 +949,11 @@ def get_rainfall_from_api(lat, lon, api_key):
         if 'list' in data and data['list']:
             # The 'precipitation' value is typically in mm
             total_precipitation = sum(month.get('precipitation', {}).get('value', 0) for month in data['list'])
-            return total_precipitation if total_precipitation > 0 else 1000  # Return a fallback if sum is 0
-        return 1000  # Default fallback if data structure is unexpected
+            return total_precipitation if total_precipitation > 0 else get_location_specific_rainfall_fallback(lat, lon)
+        return get_location_specific_rainfall_fallback(lat, lon)  # Default fallback if data structure is unexpected
     except requests.exceptions.RequestException as e:
         print(f"Error fetching rainfall data from OpenWeatherMap: {e}")
-        return 1000  # Return a default value on error
+        return get_location_specific_rainfall_fallback(lat, lon)  # Return location-specific fallback on error
 
 def get_soil_data_from_api(lat, lon):
     """
@@ -930,15 +1004,42 @@ def get_soil_data_from_api(lat, lon):
 def get_api_data(lat, lon):
     """
     Main function to fetch and combine data from all external APIs.
-    For now, it combines live API data with fallback data from the nearest CSV point
-    for fields not yet covered by live APIs (like groundwater).
+    Checks database first, fetches from APIs if not found, then stores for future use.
     """
+    # First, check if we already have data for this location in the database
+    existing_data = GeoData.query.filter_by(latitude=lat, longitude=lon).first()
+    if existing_data:
+        print(f"Using cached API data for location ({lat}, {lon})")
+        # Convert database record to the expected format
+        return {
+            "Rainfall_mm": existing_data.rainfall_mm,
+            "Soil_Type": existing_data.soil_type,
+            "Infiltration_Rate_mm_per_hr": existing_data.infiltration_rate_mm_per_hr,
+            "Soil_Permability_Class": existing_data.soil_permability_class,
+            "Groundwater_Depth_m": existing_data.groundwater_depth_m,
+            "Aquifer_Type": existing_data.aquifer_type,
+            "Aquifer_Depth_Min_m": existing_data.aquifer_depth_min_m,
+            "Aquifer_Depth_Max_m": existing_data.aquifer_depth_max_m,
+            "Aquifer_Thickness_m": existing_data.aquifer_thickness_m,
+            "Water_Quality": existing_data.water_quality,
+            "Remarks": existing_data.remarks,
+            "Region_Name": existing_data.region_name,
+            "distance": 0,  # Not stored in DB
+            "Runoff_Coefficient": 0.85,
+            "Water_Cost_per_Liter": existing_data.water_cost_per_liter,
+            "Aquifer_Material_State": "Unknown",  # Would need additional query
+            "Aquifer_Material_Type": "Unknown",
+            "Aquifer_Material_Area": 0,
+        }
+
+    print(f"Fetching fresh API data for location ({lat}, {lon})")
+
     # 1. Get live rainfall data
     rainfall = get_rainfall_from_api(lat, lon, OPENWEATHERMAP_API_KEY)
-    
+
     # 2. Get live soil data
     soil_data = get_soil_data_from_api(lat, lon)
-    
+
     # 3. Get fallback data from the database for groundwater, aquifer, etc.
     fallback_data = get_nearest_geo_data_from_db(lat, lon)
     if not fallback_data:
@@ -946,13 +1047,13 @@ def get_api_data(lat, lon):
         fallback_data = {
             'groundwater_depth_m': 10, 'aquifer_type': 'Unconfined', 'aquifer_depth_min_m': 10,
             'aquifer_depth_max_m': 30, 'aquifer_thickness_m': 20, 'water_quality': 'Good',
-            'remarks': 'No fallback data available in database', 'region_name': 'User Location', 'distance': 0,
+            'remarks': 'API data - no nearby station data', 'region_name': f'Location ({lat:.4f}, {lon:.4f})', 'distance': 0,
             'water_cost_per_liter': 0.16
         }
 
     # 4. Get aquifer material data from PostGIS
     aquifer_data = get_aquifer_material_at_location(lat, lon)
-    
+
     # 5. Combine all data into a single dictionary
     combined_data = {
         "Rainfall_mm": rainfall,
@@ -966,8 +1067,8 @@ def get_api_data(lat, lon):
         "Aquifer_Depth_Max_m": fallback_data.get('aquifer_depth_max_m', 30),
         "Aquifer_Thickness_m": fallback_data.get('aquifer_thickness_m', 20),
         "Water_Quality": fallback_data.get('water_quality', 'Good'),
-        "Remarks": fallback_data.get('remarks', 'Data from nearest station'),
-        "Region_Name": fallback_data.get('region_name', 'User Location'),
+        "Remarks": fallback_data.get('remarks', 'Data from APIs and nearest station'),
+        "Region_Name": fallback_data.get('region_name', f'Location ({lat:.4f}, {lon:.4f})'),
         "distance": fallback_data.get('distance', 0),
         "Runoff_Coefficient": 0.85, # Default, can be adjusted based on roof type later
         "Water_Cost_per_Liter": fallback_data.get('water_cost_per_liter', 0.16),
@@ -976,63 +1077,90 @@ def get_api_data(lat, lon):
         "Aquifer_Material_Type": aquifer_data.get('aquifer_type', 'Unknown') if aquifer_data.get('found') else 'Not Available',
         "Aquifer_Material_Area": aquifer_data.get('area', 0) if aquifer_data.get('found') else 0,
     }
-    
+
+    # 6. Save the API data to database for future use
+    try:
+        geo_entry = GeoData(
+            region_name=combined_data["Region_Name"],
+            state="Unknown",  # We don't get state from APIs
+            latitude=lat,
+            longitude=lon,
+            rainfall_mm=combined_data["Rainfall_mm"],
+            groundwater_depth_m=combined_data["Groundwater_Depth_m"],
+            aquifer_type=combined_data["Aquifer_Type"],
+            aquifer_depth_min_m=combined_data["Aquifer_Depth_Min_m"],
+            aquifer_depth_max_m=combined_data["Aquifer_Depth_Max_m"],
+            aquifer_thickness_m=combined_data["Aquifer_Thickness_m"],
+            remarks=combined_data["Remarks"],
+            soil_type=combined_data["Soil_Type"],
+            infiltration_rate_mm_per_hr=combined_data["Infiltration_Rate_mm_per_hr"],
+            soil_permability_class=combined_data["Soil_Permability_Class"],
+            water_quality=combined_data["Water_Quality"],
+            water_cost_per_liter=combined_data["Water_Cost_per_Liter"]
+        )
+        db.session.add(geo_entry)
+        db.session.commit()
+        print(f"Saved API data for location ({lat}, {lon}) to database")
+    except Exception as e:
+        print(f"Error saving API data to database: {e}")
+        db.session.rollback()
+
     return combined_data
 
-def load_csv_to_db():
-    """
-    Loads data from the mock_location_data.csv file into the GeoData table.
-    This function should be run once to populate the database.
-    It checks if data already exists to prevent duplicate entries.
-    """
-    with app.app_context():
-        if GeoData.query.first() is not None:
-            print("Geological data already exists in the database. Skipping import.")
-            return
+# def load_csv_to_db():
+#     """
+#     Loads data from the mock_location_data.csv file into the GeoData table.
+#     This function should be run once to populate the database.
+#     It checks if data already exists to prevent duplicate entries.
+#     """
+#     with app.app_context():
+#         if GeoData.query.first() is not None:
+#             print("Geological data already exists in the database. Skipping import.")
+#             return
 
-        print("Importing geological data from CSV to database...")
-        try:
-            df = pd.read_csv(CSV_FILE_PATH)
-            # Rename columns to match the GeoData model exactly
-            df.rename(columns={
-                'Region_Name': 'region_name',
-                'State': 'state',
-                'Latitude': 'latitude',
-                'Longitude': 'longitude',
-                'Rainfall_mm': 'rainfall_mm',
-                'Groundwater_Depth_m': 'groundwater_depth_m',
-                'Aquifer_Type': 'aquifer_type',
-                'Aquifer_Depth_Min_m': 'aquifer_depth_min_m',
-                'Aquifer_Depth_Max_m': 'aquifer_depth_max_m',
-                'Aquifer_Thickness_m': 'aquifer_thickness_m',
-                'Remarks': 'remarks',
-                'Soil_Type': 'soil_type',
-                'Infiltration_Rate_mm_per_hr': 'infiltration_rate_mm_per_hr',
-                'Soil_Permability_Class': 'soil_permability_class',
-                'Water_Quality': 'water_quality',
-                'Water_Cost_per_Liter': 'water_cost_per_liter'
-            }, inplace=True)
+#         print("Importing geological data from CSV to database...")
+#         try:
+#             df = pd.read_csv(CSV_FILE_PATH)
+#             # Rename columns to match the GeoData model exactly
+#             df.rename(columns={
+#                 'Region_Name': 'region_name',
+#                 'State': 'state',
+#                 'Latitude': 'latitude',
+#                 'Longitude': 'longitude',
+#                 'Rainfall_mm': 'rainfall_mm',
+#                 'Groundwater_Depth_m': 'groundwater_depth_m',
+#                 'Aquifer_Type': 'aquifer_type',
+#                 'Aquifer_Depth_Min_m': 'aquifer_depth_min_m',
+#                 'Aquifer_Depth_Max_m': 'aquifer_depth_max_m',
+#                 'Aquifer_Thickness_m': 'aquifer_thickness_m',
+#                 'Remarks': 'remarks',
+#                 'Soil_Type': 'soil_type',
+#                 'Infiltration_Rate_mm_per_hr': 'infiltration_rate_mm_per_hr',
+#                 'Soil_Permability_Class': 'soil_permability_class',
+#                 'Water_Quality': 'water_quality',
+#                 'Water_Cost_per_Liter': 'water_cost_per_liter'
+#             }, inplace=True)
 
-            # Ensure all columns exist, fill missing with None (which becomes NULL in DB)
-            for col in GeoData.__table__.columns.keys():
-                if col not in df.columns and col != 'id':
-                    df[col] = None
+#             # Ensure all columns exist, fill missing with None (which becomes NULL in DB)
+#             for col in GeoData.__table__.columns.keys():
+#                 if col not in df.columns and col != 'id':
+#                     df[col] = None
 
-            # Convert to records and add to database
-            records = df.to_dict(orient='records')
-            for record in records:
-                # Filter out any keys that are not in the model
-                filtered_record = {k: v for k, v in record.items() if k in GeoData.__table__.columns.keys()}
-                geo_entry = GeoData(**filtered_record)
-                db.session.add(geo_entry)
+#             # Convert to records and add to database
+#             records = df.to_dict(orient='records')
+#             for record in records:
+#                 # Filter out any keys that are not in the model
+#                 filtered_record = {k: v for k, v in record.items() if k in GeoData.__table__.columns.keys()}
+#                 geo_entry = GeoData(**filtered_record)
+#                 db.session.add(geo_entry)
             
-            db.session.commit()
-            print(f"Successfully imported {len(records)} records into the GeoData table.")
-        except FileNotFoundError:
-            print(f"CRITICAL ERROR: Could not find '{CSV_FILE_PATH}' to populate the database.")
-        except Exception as e:
-            print(f"An error occurred during CSV import: {e}")
-            db.session.rollback()
+#             db.session.commit()
+#             print(f"Successfully imported {len(records)} records into the GeoData table.")
+#         except FileNotFoundError:
+#             print(f"CRITICAL ERROR: Could not find '{CSV_FILE_PATH}' to populate the database.")
+#         except Exception as e:
+#             print(f"An error occurred during CSV import: {e}")
+#             db.session.rollback()
 
 def get_nearest_geo_data_from_db(lat, lon):
     """
@@ -1093,7 +1221,7 @@ if __name__ == '__main__':
         db.create_all()
         
         # Load data from CSV into the database
-        load_csv_to_db()
+        # load_csv_to_db()  # Commented out - CSV file not available
         
         # Create default admin user if no admin exists
         if not AdminUser.query.first():
@@ -1111,3 +1239,73 @@ if __name__ == '__main__':
             print("Please change this password after first login!")
     
     app.run(debug=True, host='0.0.0.0', port=5000)
+
+# API Routes for Interactive Map
+@app.route('/api/groundwater-stations')
+def get_groundwater_stations():
+    """API endpoint to get ground water station data for the map."""
+    try:
+        from models import GroundWaterLevelStation
+        stations = GroundWaterLevelStation.query.limit(1000).all()  # Limit for performance
+        
+        data = []
+        for station in stations:
+            if station.lat and station.long:
+                data.append({
+                    'id': station.id,
+                    'name': station.station_na or 'Unknown',
+                    'lat': station.lat,
+                    'lng': station.long,
+                    'state': station.state_name,
+                    'district': station.district_n,
+                    'agency': station.agency_nam,
+                    'basin': station.basin_name
+                })
+        
+        return jsonify({'stations': data})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/aquifers')
+def get_aquifers():
+    """API endpoint to get major aquifer data for the map."""
+    try:
+        from models import MajorAquifer
+        aquifers = MajorAquifer.query.limit(500).all()  # Limit for performance
+        
+        data = []
+        for aquifer in aquifers:
+            # For polygon geometries, we'll need to extract coordinates
+            # For now, just return basic info
+            data.append({
+                'id': aquifer.id,
+                'name': aquifer.aquifer or 'Unknown',
+                'state': aquifer.state,
+                'system': aquifer.system,
+                'zone': aquifer.zone_m
+            })
+        
+        return jsonify({'aquifers': data})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/aquifer-materials')
+def get_aquifer_materials():
+    """API endpoint to get aquifer material data for the map."""
+    try:
+        from models import AquiferMaterial
+        materials = AquiferMaterial.query.limit(500).all()  # Limit for performance
+        
+        data = []
+        for material in materials:
+            data.append({
+                'id': material.id,
+                'state': material.Name_of_St,
+                'type': material.Type_of_Aq,
+                'area': material.st_area_sh,
+                'length': material.st_length_
+            })
+        
+        return jsonify({'materials': data})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
