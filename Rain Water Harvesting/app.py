@@ -29,6 +29,31 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialize the database with the app
 db.init_app(app)
 
+# --- One-time lightweight schema guard for newly added fields ---
+def _ensure_user_input_new_columns():
+    """Safely add newly introduced columns to user_input table if they don't exist.
+
+    This avoids immediate migration tooling overhead. For production
+    replace with proper Alembic migration.
+    """
+    from sqlalchemy import text
+    ddl_statements = [
+        "ALTER TABLE user_input ADD COLUMN IF NOT EXISTS building_age VARCHAR(30)",
+        "ALTER TABLE user_input ADD COLUMN IF NOT EXISTS occupancy INTEGER",
+        # Safe attempt to drop legacy column if present
+        "DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_input' AND column_name='budget_preference') THEN ALTER TABLE user_input DROP COLUMN budget_preference; END IF; END $$;"
+    ]
+    for ddl in ddl_statements:
+        try:
+            db.session.execute(text(ddl))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"[Schema Guard] Skipped/failed: {ddl} -> {e}")
+
+with app.app_context():
+    _ensure_user_input_new_columns()
+
 # Initialize Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -121,6 +146,8 @@ class UserInput(db.Model):
     existing_water_sources = db.Column(db.String(200))  # NEW FIELD
     # budget_preference = db.Column(db.String(50))  # REMOVED - budget option no longer used
     intended_use = db.Column(db.String(100))  # NEW FIELD
+    building_age = db.Column(db.String(30))  # NEW FIELD: 'new' or 'existing'
+    occupancy = db.Column(db.Integer)  # NEW FIELD: commercial/institutional occupancy
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 # --- Admin User Model ---
@@ -332,7 +359,14 @@ def calculate_comprehensive_feasibility(location_data, user_input):
 
     category_result = determine_category(
         roof_area, open_space, rainfall_mm, soil_type, gw_depth, infiltration_rate,
-        user_preferences
+        user_preferences,
+        building_age=user_input.building_age,
+        occupancy=user_input.occupancy,
+        roof_type=user_input.roof_type,
+        water_quality_required=(user_input.intended_use.lower() if user_input.intended_use else None),
+        water_demand=(user_input.intended_use.lower() if user_input.intended_use else None),
+        modification_type='retrofit' if (user_input.building_age in ['old', 'heritage']) else None,
+        space_constraints='limited' if open_space < 20 else None
     )
 
     # Extract primary category for backward compatibility
@@ -433,8 +467,9 @@ def submit_form():
     roof_type = request.form.get('roof_type')
     property_type = request.form.get('property_type')  # NEW
     existing_water_sources = request.form.get('existing_water_sources')  # NEW
-    budget_preference = request.form.get('budget_preference')  # NEW
     intended_use = request.form.get('intended_use')  # NEW
+    building_age = request.form.get('building_age')  # NEW
+    occupancy = request.form.get('occupancy')  # NEW (optional – only for commercial)
     
     # Convert to appropriate types
     user_lat = float(user_lat) if user_lat else None
@@ -442,6 +477,7 @@ def submit_form():
     household_size = int(household_size) if household_size else 0
     rooftop_area = float(rooftop_area) if rooftop_area else 0.0
     open_space_area = float(open_space_area) if open_space_area else 0.0
+    occupancy = int(occupancy) if occupancy else None
     
     # Create a new UserInput object with enhanced fields
     new_entry = UserInput(
@@ -455,8 +491,9 @@ def submit_form():
         roof_type=roof_type,
         property_type=property_type,
         existing_water_sources=existing_water_sources,
-        budget_preference=budget_preference,
         intended_use=intended_use
+    ,building_age=building_age,
+    occupancy=occupancy
     )
     
     db.session.add(new_entry)
@@ -889,7 +926,7 @@ def admin_export_users():
     # Write header
     writer.writerow(['ID', 'Name', 'Location', 'Latitude', 'Longitude', 'Household Size', 
                      'Rooftop Area', 'Open Space Area', 'Roof Type', 'Property Type', 
-                     'Budget Preference', 'Intended Use'])
+                     'Intended Use'])
     
     # Write data
     users = UserInput.query.all()
@@ -897,7 +934,7 @@ def admin_export_users():
         writer.writerow([
             user.id, user.name, user.location_name, user.user_lat, user.user_lon,
             user.household_size, user.rooftop_area, user.open_space_area, 
-            user.roof_type, user.property_type, user.budget_preference, user.intended_use
+            user.roof_type, user.property_type, user.intended_use
         ])
     
     output.seek(0)

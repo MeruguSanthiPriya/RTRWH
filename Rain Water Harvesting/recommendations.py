@@ -213,7 +213,10 @@ CATEGORIES = [
         recommended_structures=['Compact storage solutions (1,000–5,000 liters)', 'Minimal excavation recharge', 'Integration with existing plumbing', 'Non-invasive installation methods'],
         recharge_feasible=True,
         criteria={
-            'building_age': lambda v: v > 10,  # Existing buildings
+            'building_age': lambda v: (
+                (isinstance(v, (int, float)) and v > 10) or
+                (isinstance(v, str) and v.lower() in ['old', 'heritage', 'existing'])
+            ),  # Existing buildings (numeric years or categorical)
             'modification_type': lambda v: v.lower() in ['retrofit', 'existing', 'modification'],
             'space_constraints': lambda v: v.lower() in ['limited', 'constrained', 'urban'],
             'roof_area': lambda v: 50 <= v <= 1000
@@ -235,17 +238,38 @@ CATEGORIES = [
 ]
 
 def determine_category(roof_area, open_space, rainfall, soil_type, gw_depth, infiltration_rate,
-                      user_preferences=None):
+                      user_preferences=None, building_age=None, occupancy=None, modification_type=None,
+                      space_constraints=None, usage_type=None, deployment_time=None, population_served=None,
+                      building_certification=None, roof_type=None, location_type=None, gw_quality=None,
+                      water_quality_required=None, water_demand=None):
     """
     Enhanced category determination using scoring and multi-criteria analysis.
 
     Returns primary recommendation + alternatives with confidence scores.
     """
     inputs = {
-        'roof_area': roof_area, 'open_space': open_space, 'rainfall': rainfall,
+        'roof_area': roof_area,
+        'open_space': open_space,
+        'rainfall': rainfall,
         'soil_type': soil_type.lower() if soil_type else 'unknown',
-        'gw_depth': gw_depth, 'infiltration_rate': infiltration_rate
+        'gw_depth': gw_depth,
+        'infiltration_rate': infiltration_rate,
+        'building_age': building_age,
+        'occupancy': occupancy,
+        'modification_type': modification_type,
+        'space_constraints': space_constraints,
+        'usage_type': usage_type,
+        'deployment_time': deployment_time,
+        'population_served': population_served,
+        'building_certification': building_certification,
+        'roof_type': roof_type.lower() if isinstance(roof_type, str) else roof_type,
+        'location_type': location_type,
+        'gw_quality': gw_quality,
+        'water_quality_required': water_quality_required,
+        'water_demand': water_demand
     }
+    # Remove None values to avoid spurious penalties
+    inputs = {k: v for k, v in inputs.items() if v is not None}
 
     # User preferences (optional) - complexity only
     preferences = user_preferences or {}
