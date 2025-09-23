@@ -617,6 +617,16 @@
         <li class="nav-item"><a href="#recommendations" class="nav-link"><i class="fas fa-lightbulb"></i> Recommendations</a></li>
         <li class="nav-item"><a href="#financial" class="nav-link"><i class="fas fa-chart-pie"></i> Financials</a></li>
       </ul>
+      <select class="language-selector" id="languageSelect">
+        <option value="en">English</option>
+        <option value="hi">हिंदी</option>
+        <option value="ta">தமிழ்</option>
+        <option value="te">తెలుగు</option>
+        <option value="bn">বাংলা</option>
+        <option value="gu">ગુજરાતી</option>
+        <option value="kn">ಕನ್ನಡ</option>
+        <option value="ml">മലയാളം</option>
+      </select>
     </div>
   </nav>
 
@@ -718,6 +728,27 @@
           <div class="label" data-translate-key="distance_to_data_point_label">Distance to Data Point</div>
           <div class="value">{{ location_data.distance | round(1) }} km</div>
         </div>
+        <div class="info-item">
+          <div class="icon"><i class="fas fa-filter"></i></div>
+          <div class="label" data-translate-key="infiltration_rate_soil_label">Infiltration Rate (Soil-based)</div>
+          <div class="value">
+            {% if location_data.Soil_Type.lower() == 'gravel' %}
+              >40 mm/hr
+            {% elif location_data.Soil_Type.lower() in ['sand', 'sandy loam'] %}
+              20–30 mm/hr
+            {% elif location_data.Soil_Type.lower() == 'loamy' %}
+              10–20 mm/hr
+            {% elif location_data.Soil_Type.lower() == 'silt loam' %}
+              5–10 mm/hr
+            {% elif location_data.Soil_Type.lower() == 'clay loam' %}
+              3–8 mm/hr
+            {% elif location_data.Soil_Type.lower() == 'clay' %}
+              1–5 mm/hr
+            {% else %}
+              N/A
+            {% endif %}
+          </div>
+        </div>
       </div>
     </div>
 
@@ -748,17 +779,17 @@
         </div>
         <div class="info-item">
           <div class="icon"><i class="fas fa-map"></i></div>
-          <div class="label">Aquifer Material State</div>
+          <div class="label" data-translate-key="aquifer_material_state_label">Aquifer Material State</div>
           <div class="value">{{ location_data.Aquifer_Material_State }}</div>
         </div>
         <div class="info-item">
           <div class="icon"><i class="fas fa-layer-group"></i></div>
-          <div class="label">Aquifer Material Type</div>
+          <div class="label" data-translate-key="aquifer_material_type_label">Aquifer Material Type</div>
           <div class="value">{{ location_data.Aquifer_Material_Type }}</div>
         </div>
         <div class="info-item">
           <div class="icon"><i class="fas fa-expand-arrows-alt"></i></div>
-          <div class="label">Aquifer Material Area</div>
+          <div class="label" data-translate-key="aquifer_material_area_label">Aquifer Material Area</div>
           <div class="value">{{ "{:,.0f}".format(location_data.Aquifer_Material_Area) if location_data.Aquifer_Material_Area > 0 else "N/A" }} m²</div>
         </div>
       
@@ -1303,6 +1334,7 @@
       document.body.classList.remove('printing');
     });
   </script>
+  <script src="{{ url_for('static', filename='js/language-switcher.js') }}"></script>
   <script src="{{ url_for('static', filename='js/translation.js') }}" defer></script>
 </body>
 </html>

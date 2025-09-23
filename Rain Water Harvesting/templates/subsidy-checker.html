@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RWH Subsidy & Compliance Checker</title>
+    <title>Subsidy Checker - Rainwater Harvesting</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -70,6 +70,23 @@
     </style>
 </head>
 <body class="bg-gray-900 text-white">
+
+    <!-- Header -->
+    <header class="relative z-10 container mx-auto px-4 py-6 flex justify-between items-center">
+        <img src="{{ url_for('static', filename='img.png') }}" alt="Rooftop Rainwater Harvesting Logo" class="h-12 w-12 rounded-full object-cover">
+        <div class="flex items-center space-x-4">
+            <select class="glass-input rounded-lg px-3 py-2 text-sm" id="languageSelect">
+                <option value="en">English</option>
+                <option value="hi">हिंदी</option>
+                <option value="ta">தமிழ்</option>
+                <option value="te">తెలుగు</option>
+                <option value="bn">বাংলা</option>
+                <option value="gu">ગુજરાતી</option>
+                <option value="kn">ಕನ್ನಡ</option>
+                <option value="ml">മലയാളം</option>
+            </select>
+        </div>
+    </header>
 
     <div class="container mx-auto max-w-4xl">
         <div class="text-center my-8">
@@ -144,6 +161,7 @@
         </div>
     </div>
 
+    <script src="{{ url_for('static', filename='js/language-switcher.js') }}"></script>
     <script src="{{ url_for('static', filename='js/translation.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/subsidy-checker.js') }}"></script>
     <script>

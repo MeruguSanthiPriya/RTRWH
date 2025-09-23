@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive RWH Data Map</title>
+    <title>Interactive Map - Rainwater Harvesting</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -168,6 +168,19 @@
 <body>
 
     <div id="map"></div>
+
+    <div class="absolute top-4 right-4 z-50">
+        <select id="languageSelect" class="glass-input rounded-md px-3 py-2 text-white focus:outline-none">
+            <option value="en">English</option>
+            <option value="hi">हिंदी</option>
+            <option value="ta">தமிழ்</option>
+            <option value="te">తెలుగు</option>
+            <option value="bn">বাংলা</option>
+            <option value="gu">ગુજરાતી</option>
+            <option value="kn">ಕನ್ನಡ</option>
+            <option value="ml">മലയാളം</option>
+        </select>
+    </div>
 
     <div class="map-controls">
         <h3>Visualize by Layer</h3>
@@ -389,6 +402,7 @@
             });
         });
     </script>
+    <script src="{{ url_for('static', filename='js/language-switcher.js') }}"></script>
 
 </body>
 </html>
