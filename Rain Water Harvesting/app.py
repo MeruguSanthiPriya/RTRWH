@@ -333,9 +333,35 @@ def validate_artificial_recharge_safety(location_data):
         'alternatives': ['Storage tank only', 'Community structures', 'Water conservation'] if not is_safe else []
     }
 
+def calculate_water_source_priority(existing_sources):
+    """Calculate how much RWH system is needed based on existing sources reliability and cost"""
+    if not existing_sources:
+        return 0  # No existing sources = high priority for RWH
+
+    priority_score = 0
+    sources = [s.strip() for s in existing_sources.split(',')]
+
+    # High priority sources (expensive/unreliable)
+    if 'Water Tanker' in sources:
+        priority_score += 40  # Very expensive, unreliable
+    if 'Borewell' in sources:
+        priority_score += 25  # Energy intensive, depleting groundwater
+    if 'Open Well' in sources:
+        priority_score += 20  # Contamination risk, seasonal availability
+
+    # Medium priority sources
+    if 'Municipal Supply' in sources:
+        priority_score += 10  # Generally reliable but expensive
+
+    # Low priority sources (good existing alternatives)
+    if 'Private Borewell' in sources:
+        priority_score += 5   # Better than public sources but still costly
+
+    return min(priority_score, 50)  # Cap at 50 to avoid over-prioritization
+
 def calculate_comprehensive_feasibility(location_data, user_input):
     """Enhanced feasibility calculation with safety checks and categorization."""
-    
+
     # Extract parameters
     rainfall_mm = location_data['Rainfall_mm']
     roof_area = user_input.rooftop_area
@@ -345,13 +371,16 @@ def calculate_comprehensive_feasibility(location_data, user_input):
     soil_type = location_data.get('Soil_Type', 'Loamy')
     gw_depth = location_data.get('Groundwater_Depth_m', 10)
     infiltration_rate = location_data.get('Infiltration_Rate_mm_per_hr', 15)
-    
+
     # Calculate runoff potential
     runoff_data = calculate_runoff_potential(roof_area, rainfall_mm, runoff_coeff)
-    
+
     # Check artificial recharge safety
     safety_check = validate_artificial_recharge_safety(location_data)
-    
+
+    # Calculate water source priority
+    water_source_priority = calculate_water_source_priority(user_input.existing_water_sources)
+
     # Determine category with enhanced scoring
     user_preferences = {
         'complexity': 'balanced'  # Could be enhanced based on user input
@@ -380,54 +409,62 @@ def calculate_comprehensive_feasibility(location_data, user_input):
         'recommendation_reason': category_result['primary']['recommendation_reason'],
         'alternative_categories': category_result['alternatives']
     }
-    
+
     # Calculate structure dimensions
     structure_dims = calculate_structure_dimensions(
-        runoff_data['annual_liters'], 
-        infiltration_rate, 
+        runoff_data['annual_liters'],
+        infiltration_rate,
         open_space,
         category_info['recharge_feasible']
     )
-    
+
     # Estimate costs and payback
     local_water_cost = location_data.get('Water_Cost_per_Liter', 0.16) # Fallback to 0.16 if not in CSV
+    location_type = location_data.get('Location_Type', 'urban')  # Default to urban
+    soil_type = location_data.get('Soil_Type', 'loamy')  # Default to loamy
+
     cost_analysis = estimate_costs_and_payback(
-        'storage_tank', 
-        structure_dims, 
-        runoff_data['annual_liters'],
-        local_water_cost
+        category_id=category_info['category'],
+        location_type=location_type,
+        soil_type=soil_type,
+        system_size=runoff_data['annual_liters'],
+        intended_use=user_input.intended_use
     )
-    
+
     # Get purification recommendations
     purification = get_purification_recommendations(
-        user_input.intended_use or 'general', 
-        user_input.roof_type, 
+        user_input.intended_use or 'general',
+        user_input.roof_type,
         location_data
     )
-    
+
     # Calculate household demand
     daily_demand = household_size * 135  # liters per day
     annual_demand = daily_demand * 365
-    
-    # Overall feasibility score
+
+    # Overall feasibility score (adjusted by water source priority)
     if annual_demand > 0:
-        feasibility_percentage = min((runoff_data['annual_liters'] / annual_demand) * 100, 100)
+        base_feasibility = min((runoff_data['annual_liters'] / annual_demand) * 100, 100)
+        # Apply water source priority boost (up to 20% increase for high-priority cases)
+        priority_boost = min(water_source_priority * 0.4, 20)  # Max 20% boost
+        feasibility_percentage = min(base_feasibility + priority_boost, 100)
     else:
         # If there is no demand (e.g., household size is 0), feasibility is not applicable.
         feasibility_percentage = 0.0
-    
+
     if feasibility_percentage >= 80:
         feasibility_status = "Fully Feasible"
     elif feasibility_percentage >= 50:
-        feasibility_status = "Partially Feasible" 
+        feasibility_status = "Partially Feasible"
     elif feasibility_percentage >= 20:
         feasibility_status = "Limited Feasible"
     else:
         feasibility_status = "Not Feasible"
-    
+
     return {
         'runoff_data': runoff_data,
         'safety_check': safety_check,
+        'water_source_priority': water_source_priority,
         'category': category_info,
         'structure_dimensions': structure_dims,
         'cost_analysis': cost_analysis,
@@ -510,33 +547,81 @@ def submit_form():
 
 @app.route('/results/<int:entry_id>')
 def results_page(entry_id):
-    # Retrieve user data from the database
-    user_data = UserInput.query.get_or_404(entry_id)
-    
-    # Check if user has provided GPS coordinates
-    if not user_data.user_lat or not user_data.user_lon:
-        return "Error: GPS coordinates are required for API-based analysis.", 400
+    # Redirect to the overview page of the results
+    return redirect(url_for('results_overview', entry_id=entry_id))
 
-    try:
-        # Fetch combined data from all APIs using user's GPS
-        location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
-            
-    except Exception as e:
-        error_message = f"Server error during API data retrieval: {e}"
-        print(f"ERROR: {error_message}")
-        return error_message, 500
-    
-    if not location_analysis_data:
-        return "Error: Could not retrieve data for your location from APIs.", 404
-    
-    # Perform comprehensive feasibility analysis using the combined API data
+@app.route('/results/property')
+def property_details():
+    entry_id = request.args.get('entry_id')
+    user_data = UserInput.query.get_or_404(entry_id)
+    location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+    comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
+    return render_template('property_details.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis)
+
+@app.route('/results/location')
+def location_analysis():
+    entry_id = request.args.get('entry_id')
+    user_data = UserInput.query.get_or_404(entry_id)
+    location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+    comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
+    return render_template('location_analysis.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis)
+
+@app.route('/results/hydrogeology')
+def hydrogeological_profile():
+    entry_id = request.args.get('entry_id')
+    user_data = UserInput.query.get_or_404(entry_id)
+    location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+    comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
+    return render_template('hydrogeological_profile.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis)
+
+@app.route('/results/feasibility')
+def feasibility_assessment():
+    entry_id = request.args.get('entry_id')
+    user_data = UserInput.query.get_or_404(entry_id)
+    location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+    comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
+    return render_template('feasibility_assessment.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis)
+
+@app.route('/results/recommendations')
+def recommendations():
+    entry_id = request.args.get('entry_id')
+    user_data = UserInput.query.get_or_404(entry_id)
+    location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+    comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
+    return render_template('recommendations.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis)
+
+@app.route('/results/financials')
+def financial_analysis():
+    entry_id = request.args.get('entry_id')
+    user_data = UserInput.query.get_or_404(entry_id)
+    location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
     comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
     
-    # Pass all data to the HTML template
-    return render_template('results.html',
-                         user_data=user_data,
-                         location_data=location_analysis_data,
-                         analysis=comprehensive_analysis)
+    # Get detailed cost analysis using the category from comprehensive analysis
+    cost_data = estimate_costs_and_payback(
+        category_id=comprehensive_analysis['category']['category'],
+        location_type=location_analysis_data.get('location_type', 'urban'),
+        soil_type=location_analysis_data.get('soil_type', 'clay'),
+        system_size=comprehensive_analysis['runoff_data']['annual_liters']
+    )
+    
+    return render_template('financial_analysis.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis, cost_data=cost_data)
+
+@app.route('/results/purification/<int:entry_id>')
+def purification_page(entry_id):
+    user_data = UserInput.query.get_or_404(entry_id)
+    location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+    comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
+    return render_template('purification.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis)
+
+@app.route('/results/awareness')
+def awareness_page():
+    return render_template('resources.html')
+
+@app.route('/results/overview/<int:entry_id>')
+def results_overview(entry_id):
+    user_data = UserInput.query.get_or_404(entry_id)
+    return render_template('results_overview.html', user_data=user_data)
 
 @app.route('/download_report/<int:entry_id>')
 def download_report(entry_id):
@@ -694,7 +779,9 @@ def download_report(entry_id):
 
     pdf.section_title('9. Financial Analysis')
     pdf.write_key_value_table({
-        "Initial Investment": f"₹{analysis['cost_analysis']['total_construction_cost']:,.0f}",
+        "Initial Investment": f"₹{analysis['cost_analysis']['total_initial_cost']:,.0f}",
+        "Government Subsidy (30%)": f"₹{analysis['cost_analysis']['subsidy_amount']:,.0f}",
+        "Net Investment": f"₹{analysis['cost_analysis']['net_investment']:,.0f}",
         "Annual Savings": f"₹{analysis['cost_analysis']['annual_net_savings']:,.0f}",
         "Payback Period": f"{analysis['cost_analysis']['payback_years']} years",
         "ROI (20 years)": f"{analysis['cost_analysis']['roi_percentage']}%",

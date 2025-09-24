@@ -1,0 +1,248 @@
+{% extends "base_results.html" %}
+
+{% block title %}Financial Analysis - {{ super() }}{% endblock %}
+
+{% block content %}
+<!-- Financial Analysis -->
+<div class="report-card animate-fadeInUp" id="financial">
+  <div class="section-header">
+    <div class="section-icon">
+      <i class="fas fa-chart-pie"></i>
+    </div>
+    <h2 class="section-title" data-translate-key="financial_analysis_title">Financial Analysis</h2>
+  </div>
+  
+  <div class="info-grid">
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-coins"></i></div>
+      <div class="label">Total Investment</div>
+      <div class="value">₹{{ "{:,.0f}".format(cost_data.total_cost) }}</div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-hand-holding-usd"></i></div>
+      <div class="label">Government Subsidy</div>
+      <div class="value">₹{{ "{:,.0f}".format(cost_data.subsidy_amount) }}</div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-wallet"></i></div>
+      <div class="label">Net Investment</div>
+      <div class="value">₹{{ "{:,.0f}".format(cost_data.net_investment) }}</div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-calendar-alt"></i></div>
+      <div class="label">Payback Period</div>
+      <div class="value">{{ "%.1f"|format(cost_data.payback_years) }} years</div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-water"></i></div>
+      <div class="label">Annual Water Savings</div>
+      <div class="value">{{ "{:,.0f}".format(cost_data.annual_water_savings) }} L</div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-piggy-bank"></i></div>
+      <div class="label">Annual Net Savings</div>
+      <div class="value">₹{{ "{:,.0f}".format(cost_data.annual_savings) }}</div>
+    </div>
+  </div>
+
+  <!-- Cost Breakdown -->
+  <div class="cost-breakdown">
+    <h3>Component-wise Cost Breakdown</h3>
+    <div class="breakdown-grid">
+      {% for component, cost in cost_data.component_breakdown.items() %}
+      <div class="breakdown-item">
+        <div class="breakdown-label">{{ component.replace('_', ' ').title() }}</div>
+        <div class="breakdown-value">₹{{ "{:,.0f}".format(cost) }}</div>
+      </div>
+      {% endfor %}
+      <div class="breakdown-item total">
+        <div class="breakdown-label">Total Cost</div>
+        <div class="breakdown-value">₹{{ "{:,.0f}".format(cost_data.total_cost) }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cost Modifiers Applied -->
+  <div class="cost-modifiers">
+    <h3>Cost Modifiers Applied</h3>
+    <div class="modifiers-grid">
+      <div class="modifier-item">
+        <span class="modifier-label">Category Multiplier</span>
+        <span class="modifier-value">{{ "%.2f"|format(cost_data.category_multiplier) }}x</span>
+      </div>
+      <div class="modifier-item">
+        <span class="modifier-label">Location Modifier</span>
+        <span class="modifier-value">{{ "%.2f"|format(cost_data.location_modifier) }}x</span>
+      </div>
+      <div class="modifier-item">
+        <span class="modifier-label">Soil Type Modifier</span>
+        <span class="modifier-value">{{ "%.2f"|format(cost_data.soil_modifier) }}x</span>
+      </div>
+      <div class="modifier-item">
+        <span class="modifier-label">Intended Use Modifier</span>
+        <span class="modifier-value">{{ "%.2f"|format(cost_data.intended_use_modifier) }}x</span>
+      </div>
+      <div class="modifier-item">
+        <span class="modifier-label">Total Modifier</span>
+        <span class="modifier-value">{{ "%.2f"|format(cost_data.total_modifier) }}x</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROI Projection -->
+  <div class="roi-projection">
+    <h3>20-Year ROI Projection</h3>
+    <div class="roi-stats">
+      <div class="roi-stat">
+        <div class="roi-label">Total Savings (20 years)</div>
+        <div class="roi-value">₹{{ "{:,.0f}".format(cost_data.annual_savings * 20) }}</div>
+      </div>
+      <div class="roi-stat">
+        <div class="roi-label">Return on Investment</div>
+        <div class="roi-value">{{ "%.1f"|format(cost_data.roi_percentage) }}%</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="recommendation status-partially">
+    <i class="fas fa-info-circle"></i>
+    <strong data-translate-key="disclaimer_label">Disclaimer:</strong> <span data-translate-key="financial_disclaimer_text">All financial figures are estimates. Actual costs and savings may vary. Subsidies are subject to government policies.</span>
+  </div>
+
+  <style>
+  .cost-breakdown, .roi-projection {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .cost-breakdown h3, .roi-projection h3, .cost-modifiers h3 {
+    color: #22d3ee;
+    margin-bottom: 1rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+  }
+
+  .breakdown-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .breakdown-item.total {
+    background: rgba(34, 211, 238, 0.1);
+    border: 1px solid rgba(34, 211, 238, 0.3);
+    font-weight: 700;
+  }
+
+  .breakdown-label {
+    color: #e2e8f0;
+    font-weight: 500;
+  }
+
+  .breakdown-value {
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+
+  .cost-modifiers {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .modifiers-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .modifier-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.8rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .modifier-label {
+    color: #e2e8f0;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+
+  .modifier-value {
+    color: #22d3ee;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .roi-projection {
+    margin-top: 2rem;
+  }
+
+  .roi-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .roi-stat {
+    text-align: center;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(245, 158, 11, 0.1));
+    border-radius: 12px;
+    border: 1px solid rgba(34, 211, 238, 0.2);
+  }
+
+  .roi-label {
+    color: #e2e8f0;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+
+  .roi-value {
+    color: #ffffff;
+    font-size: 1.5rem;
+    font-weight: 800;
+  }
+
+  @media (max-width: 768px) {
+    .breakdown-grid, .roi-stats, .modifiers-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .info-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  </style>
+</div>
+
+<div class="action-buttons">
+    <a href="{{ url_for('download_report', entry_id=user_data.id) }}" class="glass-button primary btn-download">
+        <i class="fas fa-file-pdf"></i> <span data-translate-key="download_pdf_button">Download PDF Report</span>
+    </a>
+    <a href="{{ url_for('interactive_map_page') }}" class="glass-button btn-map-view">
+        <i class="fas fa-map-marked-alt"></i> <span data-translate-key="view_interactive_map_button">View Interactive Map</span>
+    </a>
+</div>
+{% endblock %}

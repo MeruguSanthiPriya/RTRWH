@@ -1,0 +1,151 @@
+{% extends "base_results.html" %}
+{% block title %}Recommendations - {{ super() }}{% endblock %}
+
+{% block content %}
+<!-- Recommendations -->
+<div class="report-card animate-fadeInUp" id="recommendations">
+  <div class="section-header">
+    <div class="section-icon">
+      <i class="fas fa-lightbulb"></i>
+    </div>
+    <h2 class="section-title" data-translate-key="recommendations_title">Personalized Recommendations</h2>
+  </div>
+  
+  <div class="info-item">
+    <div class="icon"><i class="fas fa-medal"></i></div>
+    <div class="label" data-translate-key="category_label">Category {{ analysis.category.category }}: {{ analysis.category.name }}</div>
+    <div class="value">{{ analysis.category.description }}</div>
+  </div>
+  
+  <h3 style="color: #22d3ee; margin: 2rem 0 1rem 0;" data-translate-key="recommended_structures_title">
+    <i class="fas fa-tools"></i> Recommended Structures
+  </h3>
+  
+  <div class="structure-grid">
+    {% for structure in analysis.category.recommended_structures %}
+      <div class="structure-card">
+        {% if 'tank' in structure.lower() %}<div class="icon"><i class="fas fa-cube"></i></div>
+        {% elif 'pit' in structure.lower() %}<div class="icon"><i class="fas fa-hole"></i></div>
+        {% elif 'trench' in structure.lower() %}<div class="icon"><i class="fas fa-ruler-horizontal"></i></div>
+        {% else %}<div class="icon"><i class="fas fa-stream"></i></div>
+        {% endif %}
+        <div class="title">{{ structure.split('(')[0] }}</div>
+        <p>{{ structure }}</p>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Safety Analysis -->
+<div class="report-card animate-slideInLeft">
+  <div class="section-header">
+    <div class="section-icon">
+      <i class="fas fa-shield-alt"></i>
+    </div>
+    <h2 class="section-title" data-translate-key="safety_assessment_title">Safety Assessment</h2>
+  </div>
+  
+  {% if analysis.safety_check.is_safe %}
+  <div class="status-indicator status-fully">
+    <i class="fas fa-check-circle"></i>
+    <span data-translate-key="recharge_safe">Groundwater recharge is safe for your location</span>
+  </div>
+  <div class="recommendation status-fully">
+    <i class="fas fa-thumbs-up"></i>
+    <strong data-translate-key="all_clear_label">All Clear:</strong> <span data-translate-key="all_clear_text">No significant geological or environmental risks detected. Artificial recharge is likely safe to implement.</span>
+  </div>
+  {% else %}
+  <div class="status-indicator status-not">
+    <i class="fas fa-exclamation-triangle"></i>
+    <span data-translate-key="recharge_caution">Caution Advised for Groundwater Recharge</span>
+  </div>
+  <div class="recommendation status-not">
+    <strong data-translate-key="potential_issues_label">Potential Issues:</strong> {{ analysis.safety_check.safety_issues | join(', ') }}.
+    {# Only show alternatives if recharge was a primary recommendation for this category #}
+    {% if analysis.category.recharge_feasible %}
+      <span data-translate-key="consider_alternatives">Consider these alternatives:</span> {{ analysis.safety_check.alternatives | join(', ') }}.
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Structure Dimensions -->
+<div class="report-card animate-slideInRight">
+  <div class="section-header">
+    <div class="section-icon">
+      <i class="fas fa-ruler-combined"></i>
+    </div>
+    <h2 class="section-title" data-translate-key="dimensions_costs_title">Recommended Dimensions & Costs</h2>
+  </div>
+  
+  <div class="structure-grid">
+    <div class="structure-card">
+      <div class="icon"><i class="fas fa-cube"></i></div>
+      <div class="title" data-translate-key="storage_tank_title">Storage Tank</div>
+      <div class="info-grid" style="grid-template-columns: 1fr; gap: 0.5rem; margin-top: 1rem;">
+        <div style="display: flex; justify-content: space-between;">
+          <span data-translate-key="capacity_label">Capacity:</span>
+          <strong>{{ "{:,.0f}".format(analysis.structure_dimensions.storage.capacity_liters) }} <span data-translate-key="liters_unit">Liters</span></strong>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span data-translate-key="estimated_cost_label">Estimated Cost:</span>
+          <strong>{{ analysis.structure_dimensions.storage.material_cost }}</strong>
+        </div>
+      </div>
+    </div>
+    
+    {% if analysis.structure_dimensions.pit %}
+    <div class="structure-card">
+      <div class="icon"><i class="fas fa-hole"></i></div>
+      <div class="title" data-translate-key="recharge_pit_title">Recharge Pit</div>
+      <div class="info-grid" style="grid-template-columns: 1fr; gap: 0.5rem; margin-top: 1rem;">
+        <div style="display: flex; justify-content: space-between;">
+          <span data-translate-key="dimensions_label">Dimensions:</span>
+          <strong>{{ analysis.structure_dimensions.pit.length_m }}m × {{ analysis.structure_dimensions.pit.width_m }}m × {{ analysis.structure_dimensions.pit.depth_m }}m</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span data-translate-key="estimated_cost_label">Estimated Cost:</span>
+          <strong>{{ analysis.structure_dimensions.pit.material_cost }}</strong>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Water Treatment -->
+<div class="report-card animate-fadeInUp">
+  <div class="section-header">
+    <div class="section-icon">
+      <i class="fas fa-filter"></i>
+    </div>
+    <h2 class="section-title" data-translate-key="purification_plan_title">Water Purification Plan</h2>
+  </div>
+  
+  <p style="margin-bottom: 1.5rem; color: rgba(255, 255, 255, 0.8);">
+    <strong data-translate-key="intended_use_label">For your intended use:</strong> {{ user_data.intended_use }}
+  </p>
+  
+  <h3 style="color: #22d3ee; margin-bottom: 1rem;" data-translate-key="treatment_sequence_title">Treatment Sequence:</h3>
+  
+  <div class="treatment-sequence">
+    {% for step in analysis.purification.treatment_sequence %}
+      <div class="treatment-step">
+        <div class="step-number">{{ loop.index }}</div>
+        <div>
+          <strong>{{ step.split(' - ')[0] }}</strong><br>
+          <small>{{ step.split(' - ')[1] }}</small>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  
+  <div class="info-grid">
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-calendar-alt"></i></div>
+      <div class="label" data-translate-key="maintenance_schedule_label">Maintenance Schedule</div>
+      <div class="value">{{ analysis.purification.maintenance_schedule }}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

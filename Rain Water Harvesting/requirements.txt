@@ -13,4 +13,3 @@ GeoAlchemy2
 geopandas
 shapely
 rasterio
-rasterio

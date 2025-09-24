@@ -657,39 +657,187 @@ def calculate_structure_dimensions(runoff_volume, soil_infiltration, available_s
 
     return dimensions
 
-def estimate_costs_and_payback(structure_type, dimensions, annual_runoff, local_water_cost):
-    """Calculate construction costs and payback period."""
-    cost_structure = {
-        'storage_tank': {
-            'base_cost': dimensions.get('storage', {}).get('capacity_liters', 5000) * 15,
-            'installation': 5000,
-            'maintenance_annual': 2000
+def estimate_costs_and_payback(category_id: int, location_type: str = 'urban', soil_type: str = 'loamy', system_size: float = 1000, intended_use: str = 'general'):
+    """
+    Comprehensive cost estimation based on detailed component pricing from cost analysis document.
+    Includes cost modifiers for location, soil type, and other factors.
+    Uses exact category costs and payback data from the provided analysis.
+
+    Args:
+        category_id: Category ID (1-6) determining system complexity
+        location_type: 'urban', 'rural', or 'semi-urban'
+        soil_type: 'clay', 'sandy', or 'loamy'
+        system_size: System capacity in liters (used for subsidy calculation)
+        intended_use: Primary intended use of harvested water
+
+    Returns:
+        Dictionary with detailed cost breakdown and financial analysis
+    """
+    # Exact category costs from the document
+    category_costs = {
+        1: {
+            'total_cost': 49000,
+            'components': {
+                'storage_tank': 20000,
+                'filter_unit': 8000,
+                'pipes_fittings': 6000,
+                'first_flush': 3000,
+                'labour': 12000
+            }
         },
-        'recharge_pit': {
-            'base_cost': 15000, 'installation': 8000, 'maintenance_annual': 3000
+        2: {
+            'total_cost': 70000,
+            'components': {
+                'storage_tank': 27000,
+                'recharge_pit': 4000,
+                'filter_unit': 10000,
+                'pipes_fittings': 8000,
+                'first_flush': 3000,
+                'labour': 18000
+            }
         },
-        'recharge_trench': {
-            'base_cost': 25000, 'installation': 12000, 'maintenance_annual': 4000
+        3: {
+            'total_cost': 93500,
+            'components': {
+                'storage_tank': 35000,
+                'recharge_trench': 7500,
+                'filter_unit': 12000,
+                'pipes_fittings': 10000,
+                'first_flush': 4000,
+                'labour': 25000
+            }
+        },
+        4: {
+            'total_cost': 222500,
+            'components': {
+                'storage_tank': 70000,
+                'recharge_shaft': 72500,
+                'filter_unit': 20000,
+                'pipes_fittings': 15000,
+                'first_flush': 5000,
+                'labour': 40000
+            }
+        },
+        5: {
+            'total_cost': 123500,
+            'components': {
+                'storage_tank': 52500,
+                'recharge_structure': 25000,
+                'filter_system': 15000,
+                'pipes_fittings': 12000,
+                'first_flush_system': 4000,
+                'installation_misc': 15000
+            }
+        },
+        6: {
+            'total_cost': 564500,
+            'components': {
+                'central_storage': 262500,
+                'recharge_structure': 150000,
+                'central_filter': 42000,
+                'pipe_network': 38000,
+                'pumps_controls': 27000,
+                'installation_misc': 45000
+            }
         }
     }
-    
-    # Correctly calculate total cost as base + installation
-    selected_costs = cost_structure.get(structure_type, cost_structure['storage_tank'])
-    total_cost = selected_costs['base_cost'] + selected_costs['installation']
-    
-    annual_water_value = annual_runoff * local_water_cost
-    annual_savings = annual_water_value - selected_costs['maintenance_annual']
 
-    payback_years = total_cost / annual_savings if annual_savings > 0 else float('inf')
-
-    return {
-        'total_construction_cost': total_cost,
-        'annual_water_value': annual_water_value,
-        'annual_net_savings': annual_savings,
-        'payback_years': round(payback_years, 1),
-        'roi_percentage': round((annual_savings / total_cost) * 100, 1) if total_cost > 0 else 0
+    # Payback data from the document
+    payback_data = {
+        1: {'payback_years': 10, 'annual_savings': 10000},
+        2: {'payback_years': 8, 'annual_savings': 15000},
+        3: {'payback_years': 6, 'annual_savings': 22000},
+        4: {'payback_years': 9, 'annual_savings': 45000},
+        5: {'payback_years': 14, 'annual_savings': 30000},
+        6: {'payback_years': 10, 'annual_savings': 150000}
     }
 
+    # Get base costs for the category
+    if category_id not in category_costs:
+        category_id = 1  # Default to category 1
+
+    base_cost = category_costs[category_id]['total_cost']
+    components = category_costs[category_id]['components']
+
+    # Cost modifiers from the document
+    cost_modifiers = {
+        'location': {
+            'urban': 1.15,      # Urban Premium
+            'semi-urban': 1.0,  # Base rate
+            'rural': 0.85       # Rural Discount
+        },
+        'soil': {
+            'hard': 1.25,       # Hard Soil
+            'soft': 0.90,       # Soft Soil
+            'loamy': 1.0,       # Base rate
+            'sandy': 0.95,      # Sandy soil
+            'clay': 1.1         # Clay soil
+        },
+        'materials': 1.20,      # Premium Materials
+        'contingency': 1.15     # Contingency
+    }
+
+    # Intended use cost modifier
+    intended_use_modifier = 1.0  # Default
+    if intended_use and intended_use.lower() in ['drinking', 'potable', 'cooking']:
+        intended_use_modifier = 1.25  # 25% premium for potable water systems
+    elif intended_use and intended_use.lower() in ['gardening', 'irrigation', 'landscaping']:
+        intended_use_modifier = 0.9   # 10% discount for non-potable uses
+
+    # Apply modifiers
+    location_modifier = cost_modifiers['location'].get(location_type.lower(), 1.0)
+    soil_modifier = cost_modifiers['soil'].get(soil_type.lower(), 1.0)
+
+    # Calculate final costs with all modifiers
+    total_cost = base_cost * location_modifier * soil_modifier * cost_modifiers['materials'] * cost_modifiers['contingency'] * intended_use_modifier
+
+    # Government subsidy (₹10,000 to ₹50,000 based on system size)
+    if system_size <= 1000:
+        subsidy_amount = 10000
+    elif system_size <= 2000:
+        subsidy_amount = 20000
+    elif system_size <= 5000:
+        subsidy_amount = 35000
+    else:
+        subsidy_amount = 50000
+
+    # Net investment after subsidy
+    net_investment = total_cost - subsidy_amount
+
+    # Get payback data for the category
+    payback_info = payback_data.get(category_id, payback_data[1])
+    payback_years = payback_info['payback_years']
+    annual_savings = payback_info['annual_savings']
+
+    # Calculate ROI (20-year period)
+    total_20_year_savings = annual_savings * 20
+    if net_investment > 0:
+        roi_percentage = ((total_20_year_savings - net_investment) / net_investment) * 100
+    else:
+        roi_percentage = 0
+
+    # Calculate annual water savings (reverse engineered from annual savings)
+    # Assuming water cost of ₹0.20 per liter
+    annual_water_savings = annual_savings / 0.20
+
+    return {
+        'component_breakdown': components,
+        'total_base_cost': base_cost,
+        'category_multiplier': 1.0,  # Not used since we have exact costs
+        'location_modifier': location_modifier,
+        'soil_modifier': soil_modifier,
+        'intended_use_modifier': intended_use_modifier,
+        'total_modifier': location_modifier * soil_modifier * cost_modifiers['materials'] * cost_modifiers['contingency'] * intended_use_modifier,
+        'total_cost': total_cost,
+        'total_initial_cost': total_cost,  # For backward compatibility
+        'subsidy_amount': subsidy_amount,
+        'net_investment': net_investment,
+        'annual_water_savings': annual_water_savings,
+        'annual_savings': annual_savings,
+        'annual_net_savings': annual_savings,  # For backward compatibility
+        'payback_years': payback_years,
+        'roi_percentage': roi_percentage
+    }
 def get_purification_recommendations(intended_use, roof_type, location_data):
     """Recommend filtration sequence based on intended use and conditions."""
     base_sequence = [

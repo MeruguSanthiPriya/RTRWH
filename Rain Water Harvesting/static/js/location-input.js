@@ -548,8 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
         rooftopArea: document.getElementById('rooftopArea').value,
         openSpaceArea: document.getElementById('openSpaceArea').value,
           // budgetPreference removed — no longer collected client-side
-        intendedUse: document.getElementById('intendedUse').value,
-        storageMonths: document.getElementById('storageMonths').value
+        intendedUse: document.getElementById('intendedUse').value
       },
       
       // Water sources

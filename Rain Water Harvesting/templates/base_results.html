@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Feasibility Report{% endblock %} - Rooftop Rainwater Harvesting</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  {% block head_extra %}{% endblock %}
+  <style>
+    /* Enhanced animations and effects */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes slideInLeft {
+      from { opacity: 0; transform: translateX(-30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      33% { transform: translateY(-20px) rotate(120deg); }
+      66% { transform: translateY(-10px) rotate(240deg); }
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    
+    @keyframes shimmer {
+      0% { background-position: -200px 0; }
+      100% { background-position: calc(200px + 100%) 0; }
+    }
+    
+    .animate-fadeInUp { animation: fadeInUp 0.8s ease-out forwards; }
+    .animate-slideInLeft { animation: slideInLeft 0.6s ease-out forwards; }
+    .animate-slideInRight { animation: slideInRight 0.6s ease-out forwards; }
+    .animate-pulse { animation: pulse 2s ease-in-out infinite; }
+    
+    /* Enhanced gradient background */
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: rgba(255, 255, 255, 0.9);
+      line-height: 1.6;
+      padding: 20px;
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+    
+    /* Background particles */
+    .bg-particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+    
+    .particle {
+      position: absolute;
+      background: rgba(34, 211, 238, 0.1);
+      border-radius: 50%;
+      animation: float 6s ease-in-out infinite;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      position: relative;
+      z-index: 10;
+    }
+    
+    /* Header styling */
+    .report-header {
+      text-align: center;
+      margin-bottom: 3rem;
+      padding: 2rem;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .report-header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -200px;
+      width: 200px;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.1), transparent);
+      animation: shimmer 3s ease-in-out infinite;
+    }
+    
+    .report-title {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #22d3ee;
+      margin-bottom: 0.5rem;
+      text-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+    }
+    
+    .report-subtitle {
+      font-size: 1.2rem;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 1rem;
+    }
+    
+    /* Enhanced card styling */
+    .report-card {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 25px 45px rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+      border-radius: 20px;
+      margin-bottom: 2rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .report-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 35px 55px rgba(0, 0, 0, 0.15);
+    }
+    
+    .report-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #22d3ee, #06b6d4, #0891b2);
+      border-radius: 20px 20px 0 0;
+    }
+    
+    /* Section headers */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid rgba(34, 211, 238, 0.2);
+    }
+    
+    .section-icon {
+      font-size: 1.8rem;
+      color: #22d3ee;
+      background: rgba(34, 211, 238, 0.1);
+      padding: 1rem;
+      border-radius: 12px;
+      min-width: 60px;
+      text-align: center;
+    }
+    
+    .section-title {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #ffffff;
+      margin: 0;
+    }
+    
+    /* Status indicators */
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border-radius: 25px;
+      font-weight: bold;
+      margin: 0.5rem 0;
+      backdrop-filter: blur(10px);
+      border: 1px solid;
+    }
+    
+    .status-fully {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #10b981;
+    }
+    
+    .status-partially {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: rgba(245, 158, 11, 0.4);
+      color: #f59e0b;
+    }
+    
+    .status-not {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #ef4444;
+    }
+    
+    .status-limited {
+      background: rgba(217, 119, 6, 0.2);
+      border-color: rgba(217, 119, 6, 0.4);
+      color: #d97706;
+    }
+    
+    /* Info cards grid */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin: 1.5rem 0;
+    }
+    
+    .info-item {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      padding: 1.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    
+    .info-item:hover {
+      background: rgba(34, 211, 238, 0.1);
+      border-color: rgba(34, 211, 238, 0.3);
+      transform: translateY(-2px);
+    }
+    
+    .info-item .icon {
+      font-size: 2rem;
+      color: #22d3ee;
+      margin-bottom: 1rem;
+    }
+    
+    .info-item .label {
+      font-size: 0.9rem;
+      color: rgba(255, 255, 255, 0.6);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.5rem;
+    }
+    
+    .info-item .value {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #ffffff;
+    }
+    
+    /* Disclaimer styling */
+    .disclaimer {
+      background: rgba(245, 158, 11, 0.15);
+      border: 2px solid rgba(245, 158, 11, 0.3);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      position: relative;
+    }
+    
+    .disclaimer::before {
+      content: '';
+      position: absolute;
+      left: 1.5rem;
+      top: 1.5rem;
+      width: 4px;
+      height: calc(100% - 3rem);
+      background: #f59e0b;
+      border-radius: 2px;
+    }
+    
+    .disclaimer-content {
+      margin-left: 1.5rem;
+    }
+    
+    .disclaimer .icon {
+      color: #f59e0b;
+      font-size: 1.2rem;
+      margin-right: 0.5rem;
+    }
+    
+    /* Recommendation boxes */
+    .recommendation {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      border-left: 4px solid;
+      position: relative;
+    }
+    
+    .recommendation.status-fully { border-color: #10b981; }
+    .recommendation.status-partially { border-color: #f59e0b; }
+    .recommendation.status-not { border-color: #ef4444; }
+    .recommendation.status-limited { border-color: #d97706; }
+    
+    /* Chart container */
+    .chart-container {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      padding: 2rem;
+      margin: 1.5rem 0;
+      position: relative;
+      height: 400px;
+    }
+    
+    /* Structure cards */
+    .structure-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin: 1.5rem 0;
+    }
+    
+    .structure-card {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      padding: 1.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+    
+    .structure-card:hover {
+      background: rgba(34, 211, 238, 0.1);
+      border-color: rgba(34, 211, 238, 0.3);
+      transform: translateY(-3px);
+    }
+    
+    .structure-card .icon {
+      font-size: 3rem;
+      color: #22d3ee;
+      margin-bottom: 1rem;
+    }
+    
+    .structure-card .title {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #ffffff;
+      margin-bottom: 1rem;
+    }
+    
+    /* Treatment sequence */
+    .treatment-sequence {
+      display: grid;
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    
+    .treatment-step {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      border-left: 4px solid #22d3ee;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      transition: all 0.3s ease;
+    }
+    
+    .treatment-step:hover {
+      background: rgba(34, 211, 238, 0.1);
+      transform: translateX(5px);
+    }
+    
+    .treatment-step .step-number {
+      background: #22d3ee;
+      color: #0f172a;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+    
+    /* Water illustration */
+    .water-illustration {
+      text-align: center;
+      margin: 2rem 0;
+      padding: 2rem;
+      background: rgba(34, 211, 238, 0.05);
+      border-radius: 20px;
+      border: 2px dashed rgba(34, 211, 238, 0.3);
+    }
+    
+    .water-drops {
+      font-size: 4rem;
+      color: #22d3ee;
+      margin-bottom: 1rem;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    
+    /* Buttons */
+    .glass-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem 2rem;
+      background: rgba(34, 211, 238, 0.2);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(34, 211, 238, 0.3);
+      border-radius: 25px;
+      color: white;
+      text-decoration: none;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      margin: 1rem;
+    }
+    
+    .glass-button:hover {
+      background: rgba(34, 211, 238, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(34, 211, 238, 0.2);
+    }
+    
+    .glass-button.primary {
+      background: rgba(34, 211, 238, 0.3);
+      border-color: rgba(34, 211, 238, 0.5);
+    }
+
+    /* New button styles */
+    .btn-download, .btn-map-view {
+      display: inline-block;
+      background-color: #0056b3;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      text-align: center;
+      font-weight: 500;
+      text-decoration: none;
+      border-radius: 5px;
+      transition: background-color 0.3s ease;
+      margin-left: 10px; /* Add some space between buttons */
+    }
+
+    .btn-map-view {
+      background-color: #28a745; /* A different color for distinction */
+    }
+
+    .btn-download:hover, .btn-map-view:hover {
+      background-color: #004494;
+    }
+    .btn-map-view:hover {
+      background-color: #218838;
+    }
+    
+    /* Action buttons container */
+    .action-buttons {
+      text-align: center;
+      margin: 3rem 0;
+      padding: 2rem;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Navbar styling */
+    .results-navbar {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(15px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 1000;
+      transition: all 0.3s ease;
+    }
+
+    .navbar-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .navbar-brand {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #22d3ee;
+      text-decoration: none;
+    }
+
+    .navbar-nav {
+      display: flex;
+      gap: 1.5rem;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .nav-link {
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      font-weight: 500;
+      padding: 0.5rem 0;
+      position: relative;
+      transition: color 0.3s ease;
+    }
+
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: #22d3ee;
+      transition: width 0.3s ease;
+    }
+
+    .nav-link:hover, .nav-link.active {
+      color: #ffffff;
+    }
+
+    .nav-link:hover::after, .nav-link.active::after {
+      width: 100%;
+    }
+
+    .nav-link i {
+      margin-right: 8px;
+      width: 20px; /* Align text by giving icon a fixed width */
+      text-align: center;
+    }
+
+    .navbar-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    @media (max-width: 992px) {
+      .navbar-nav {
+        display: none;
+        flex-direction: column;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        background: rgba(15, 23, 42, 0.95);
+        padding: 1rem 0;
+      }
+
+      .navbar-nav.active {
+        display: flex;
+      }
+
+      .nav-item {
+        text-align: center;
+      }
+
+      .navbar-toggle {
+        display: block;
+      }
+    }
+    
+    /* Responsive design */
+    @media (max-width: 768px) {
+      .report-title { font-size: 2rem; }
+      .info-grid { grid-template-columns: 1fr; }
+      .structure-grid { grid-template-columns: 1fr; }
+      .action-buttons { 
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .glass-button { width: 100%; justify-content: center; }
+      body {
+        padding-top: 60px; /* Adjust for fixed navbar */
+      }
+    }
+    
+    /* Print styles */
+    @media print {
+      body { background: white; color: black; }
+      .report-card { 
+        background: white; 
+        border: 2px solid #ddd; 
+        box-shadow: none;
+        page-break-inside: avoid;
+      }
+      .glass-button { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Background particles -->
+  <div class="bg-particles" id="particles"></div>
+
+  <!-- Navigation Bar -->
+  {% block navbar %}
+  <nav class="results-navbar">
+    <div class="navbar-container">
+      <a href="#" class="navbar-brand">RWH Report</a>
+      <button class="navbar-toggle" id="navbarToggle">
+        <i class="fas fa-bars"></i>
+      </button>
+      <ul class="navbar-nav" id="navbarNav">
+        <li class="nav-item"><a href="{{ url_for('property_details', entry_id=user_data.id) }}" class="nav-link"><i class="fas fa-home"></i> Property</a></li>
+        <li class="nav-item"><a href="{{ url_for('location_analysis', entry_id=user_data.id) }}" class="nav-link"><i class="fas fa-globe-asia"></i> Location</a></li>
+        <li class="nav-item"><a href="{{ url_for('hydrogeological_profile', entry_id=user_data.id) }}" class="nav-link"><i class="fas fa-layer-group"></i> Hydrogeology</a></li>
+        <li class="nav-item"><a href="{{ url_for('feasibility_assessment', entry_id=user_data.id) }}" class="nav-link"><i class="fas fa-calculator"></i> Feasibility</a></li>
+        <li class="nav-item"><a href="{{ url_for('recommendations', entry_id=user_data.id) }}" class="nav-link"><i class="fas fa-lightbulb"></i> Recommendations</a></li>
+        <li class="nav-item"><a href="{{ url_for('financial_analysis', entry_id=user_data.id) }}" class="nav-link"><i class="fas fa-chart-pie"></i> Financials</a></li>
+      </ul>
+      <select class="language-selector" id="languageSelect">
+        <option value="en">English</option>
+        <option value="hi">हिंदी</option>
+        <option value="ta">தமிழ்</option>
+        <option value="te">తెలుగు</option>
+        <option value="bn">বাংলা</option>
+        <option value="gu">ગુજરાતી</option>
+        <option value="kn">ಕನ್ನಡ</option>
+        <option value="ml">മലയാളം</option>
+      </select>
+    </div>
+  </nav>
+  {% endblock %}
+
+  <div class="container">
+    {% block content %}{% endblock %}
+  </div>
+
+  <script>
+    // Particle animation script
+    document.addEventListener('DOMContentLoaded', () => {
+      const particlesContainer = document.getElementById('particles');
+      const numParticles = 50;
+      for (let i = 0; i < numParticles; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        const size = Math.random() * 10 + 2;
+        particle.style.width = `${size}px`;
+        particle.style.height = `${size}px`;
+        particle.style.left = `${Math.random() * 100}%`;
+        particle.style.top = `${Math.random() * 100}%`;
+        particle.style.animationDuration = `${Math.random() * 10 + 5}s`;
+        particle.style.animationDelay = `${Math.random() * 5}s`;
+        particlesContainer.appendChild(particle);
+      }
+
+      // Navbar toggle for mobile
+      const navbarToggle = document.getElementById('navbarToggle');
+      const navbarNav = document.getElementById('navbarNav');
+      if (navbarToggle) {
+        navbarToggle.addEventListener('click', () => {
+          navbarNav.classList.toggle('active');
+        });
+      }
+
+      // Active link highlighting
+      const navLinks = document.querySelectorAll('.nav-link');
+      const currentPath = window.location.pathname;
+      navLinks.forEach(link => {
+        if (link.getAttribute('href') === currentPath) {
+          link.classList.add('active');
+        }
+      });
+    });
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

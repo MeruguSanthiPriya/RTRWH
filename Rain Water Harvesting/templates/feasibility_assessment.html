@@ -1,0 +1,295 @@
+{% extends "base_results.html" %}
+{% block title %}Feasibility Assessment - {{ super() }}{% endblock %}
+
+{% block head_extra %}
+<style>
+  /* Category styling */
+  .category-info {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+  }
+  
+  .category-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    min-width: 200px;
+  }
+  
+  .category-1 { border-left: 4px solid #10b981; }
+  .category-2 { border-left: 4px solid #3b82f6; }
+  .category-3 { border-left: 4px solid #f59e0b; }
+  .category-4 { border-left: 4px solid #ef4444; }
+  .category-5 { border-left: 4px solid #8b5cf6; }
+  .category-6 { border-left: 4px solid #06b6d4; }
+  
+  .category-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #ffffff;
+    margin-bottom: 5px;
+  }
+  
+  .category-name {
+    font-size: 1.2rem;
+    color: #e2e8f0;
+    text-align: center;
+  }
+  
+  .category-details {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .category-description,
+  .category-confidence,
+  .category-reason {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border-left: 3px solid rgba(255, 255, 255, 0.3);
+  }
+  
+  .category-description strong,
+  .category-confidence strong,
+  .category-reason strong {
+    color: #60a5fa;
+    display: block;
+    margin-bottom: 5px;
+  }
+  
+  .recharge-status {
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+  }
+  
+  .recharge-status.feasible {
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #10b981;
+  }
+  
+  .recharge-status.not-feasible {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+  }
+  
+  @media (max-width: 768px) {
+    .category-info {
+      flex-direction: column;
+    }
+    
+    .category-badge {
+      min-width: 150px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block navbar %}{% endblock %}
+
+{% block content %}
+<!-- Feasibility Results -->
+<div class="report-card animate-slideInLeft" id="feasibility">
+  <div class="section-header">
+    <div class="section-icon">
+      <i class="fas fa-calculator"></i>
+    </div>
+    <h2 class="section-title" data-translate-key="feasibility_assessment_title">Feasibility Assessment</h2>
+  </div>
+  
+  <div class="info-grid">
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-cloud-rain"></i></div>
+      <div class="label" data-translate-key="annual_harvest_potential_label">Annual Harvest Potential</div>
+      <div class="value">{{ "{:,.0f}".format(analysis.runoff_data.annual_liters) }} <span data-translate-key="liters_unit">Liters</span></div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-home"></i></div>
+      <div class="label" data-translate-key="household_demand_label">Household Demand</div>
+      <div class="value">{{ "{:,.0f}".format(analysis.annual_demand) }} <span data-translate-key="liters_unit">Liters</span></div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-percentage"></i></div>
+      <div class="label" data-translate-key="demand_coverage_label">Demand Coverage</div>
+      <div class="value">{{ analysis.feasibility_percentage }}%</div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-check-circle"></i></div>
+      <div class="label" data-translate-key="feasibility_status_label">Feasibility Status</div>
+      <div class="value status-{{ analysis.feasibility_status.lower().split(' ')[0] }}">{{ analysis.feasibility_status }}</div>
+    </div>
+  </div>
+  
+  <div class="recommendation status-{{ analysis.feasibility_status.lower().split(' ')[0] }}">
+    <i class="fas fa-star"></i>
+    <strong data-translate-key="summary_label">Summary:</strong> 
+    {% if analysis.feasibility_status == "Fully Feasible" %} <span data-translate-key="summary_fully_feasible">Your property can likely meet its entire water demand through rainwater harvesting.</span>
+    {% elif analysis.feasibility_status == "Partially Feasible" %} <span data-translate-key="summary_partially_feasible">Your property can significantly reduce its reliance on external water sources. A system is highly recommended.</span>
+    {% else %} <span data-translate-key="summary_not_feasible">While harvesting may not meet all demand, it can still provide a useful supplementary water source.</span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Category Classification -->
+<div class="report-card animate-slideInUp">
+  <div class="section-header">
+    <div class="section-icon">
+      <i class="fas fa-tags"></i>
+    </div>
+    <h2 class="section-title">System Category</h2>
+  </div>
+  
+  <div class="category-info">
+    <div class="category-badge category-{{ analysis.category.category }}">
+      <div class="category-number">Category {{ analysis.category.category }}</div>
+      <div class="category-name">{{ analysis.category.name }}</div>
+    </div>
+    
+    <div class="category-details">
+      <div class="category-description">
+        <strong>Description:</strong> {{ analysis.category.description }}
+      </div>
+      
+      <div class="category-confidence">
+        <strong>Confidence Score:</strong> {{ "%.1f"|format(analysis.category.confidence_score) }}%
+      </div>
+      
+      <div class="category-reason">
+        <strong>Recommendation Reason:</strong> {{ analysis.category.recommendation_reason }}
+      </div>
+      
+      {% if analysis.category.recharge_feasible %}
+      <div class="recharge-status feasible">
+        <i class="fas fa-check-circle"></i> Artificial Recharge Feasible
+      </div>
+      {% else %}
+      <div class="recharge-status not-feasible">
+        <i class="fas fa-times-circle"></i> Artificial Recharge Not Recommended
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Chart Visualization -->
+<div class="report-card animate-slideInRight">
+  <div class="section-header">
+    <div class="section-icon">
+      <i class="fas fa-chart-bar"></i>
+    </div>
+    <h2 class="section-title" data-translate-key="supply_demand_analysis_title">Supply vs. Demand Analysis</h2>
+  </div>
+  
+  <div class="chart-container">
+    <canvas id="feasibilityChart"></canvas>
+  </div>
+</div>
+
+<!-- Recommended Structures -->
+<div class="report-card animate-fadeInUp">
+  <div class="section-header">
+    <div class="section-icon">
+      <i class="fas fa-tools"></i>
+    </div>
+    <h2 class="section-title">Recommended Structures</h2>
+  </div>
+  
+  <div class="structure-list">
+    {% for structure in analysis.category.recommended_structures %}
+    <div class="structure-item">
+      <i class="fas fa-check-circle"></i>
+      <span>{{ structure }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Cost Analysis Button -->
+<div class="action-buttons">
+  <a href="{{ url_for('results_overview', entry_id=user_data.id) }}" class="glass-button secondary">
+    <i class="fas fa-arrow-left"></i> Return to Results Page
+  </a>
+  <a href="{{ url_for('financial_analysis', entry_id=user_data.id) }}" class="glass-button primary">
+    <i class="fas fa-calculator"></i> Cost Analysis
+  </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const ctx = document.getElementById('feasibilityChart').getContext('2d');
+    const feasibilityChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Annual Water Supply (Harvested)', 'Annual Water Demand'],
+        datasets: [{
+          label: 'Liters',
+          data: [{{ analysis.runoff_data.annual_liters | tojson }}, {{ analysis.annual_demand | tojson }}],
+          backgroundColor: [
+            'rgba(34, 211, 238, 0.6)',
+            'rgba(245, 158, 11, 0.6)'
+          ],
+          borderColor: [
+            '#22d3ee',
+            '#f59e0b'
+          ],
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              color: 'rgba(255, 255, 255, 0.8)'
+            },
+            grid: {
+              color: 'rgba(255, 255, 255, 0.1)'
+            }
+          },
+          x: {
+            ticks: {
+              color: 'rgba(255, 255, 255, 0.8)'
+            },
+            grid: {
+              display: false
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: false
+          },
+          title: {
+            display: true,
+            text: 'Annual Water Supply vs. Demand',
+            color: '#ffffff',
+            font: {
+              size: 16
+            }
+          }
+        }
+      }
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base_results.html" %}
+{% block title %}Location Analysis - {{ super() }}{% endblock %}
+
+{% block content %}
+<!-- Location Analysis -->
+<div class="report-card animate-slideInRight" id="location-analysis">
+  <div class="section-header">
+    <div class="section-icon">
+      <i class="fas fa-globe-asia"></i>
+    </div>
+    <h2 class="section-title" data-translate-key="location_analysis_title">Location Analysis</h2>
+  </div>
+  
+  <div class="disclaimer">
+    <div class="disclaimer-content">
+      <i class="fas fa-info-circle icon"></i>
+      <strong data-translate-key="data_source_label">Data Source:</strong> <span data-translate-key="data_source_text">Analysis based on data for</span> <strong>{{ location_data.Region_Name }}</strong>. 
+      <span data-translate-key="prototype_simulation_text">This is a prototype simulation.</span>
+    </div>
+  </div>
+  
+  <div class="info-grid">
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-cloud-rain"></i></div>
+      <div class="label" data-translate-key="annual_rainfall_label">Annual Rainfall</div>
+      <div class="value">{{ location_data.Rainfall_mm | round }} mm</div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-mountain"></i></div>
+      <div class="label" data-translate-key="soil_type_label">Soil Type</div>
+      <div class="value">{{ location_data.Soil_Type }}</div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-tint"></i></div>
+      <div class="label" data-translate-key="groundwater_depth_label">Groundwater Depth</div>
+      <div class="value">{{ location_data.Groundwater_Depth_m }} <span data-translate-key="meters_unit">meters</span></div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-road"></i></div>
+      <div class="label" data-translate-key="distance_to_data_point_label">Distance to Data Point</div>
+      <div class="value">{{ location_data.distance | round(1) }} km</div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-filter"></i></div>
+      <div class="label" data-translate-key="infiltration_rate_soil_label">Infiltration Rate (Soil-based)</div>
+      <div class="value">
+        {% if location_data.Soil_Type.lower() == 'gravel' %}
+          >40 mm/hr
+        {% elif location_data.Soil_Type.lower() in ['sand', 'sandy loam'] %}
+          20–30 mm/hr
+        {% elif location_data.Soil_Type.lower() == 'loamy' %}
+          10–20 mm/hr
+        {% elif location_data.Soil_Type.lower() == 'silt loam' %}
+          5–10 mm/hr
+        {% elif location_data.Soil_Type.lower() == 'clay loam' %}
+          3–8 mm/hr
+        {% elif location_data.Soil_Type.lower() == 'clay' %}
+          1–5 mm/hr
+        {% else %}
+          N/A
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

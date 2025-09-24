@@ -1,0 +1,47 @@
+{% extends "base_results.html" %}
+{% block title %}Property Details - {{ super() }}{% endblock %}
+
+{% block content %}
+<!-- User Details -->
+<div class="report-card animate-slideInLeft" id="property-details">
+  <div class="section-header">
+    <div class="section-icon">
+      <i class="fas fa-user-circle"></i>
+    </div>
+    <h2 class="section-title" data-translate-key="property_details_title">Your Property Details</h2>
+  </div>
+  
+  <div class="info-grid">
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-user"></i></div>
+      <div class="label" data-translate-key="property_owner_label">Property Owner</div>
+      <div class="value">{{ user_data.name }}</div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-map-marker-alt"></i></div>
+      <div class="label" data-translate-key="location_label">Location</div>
+      <div class="value">{{ user_data.location_name.split(',')[0] }}</div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-users"></i></div>
+      <div class="label" data-translate-key="household_size_label">Household Size</div>
+      <div class="value">{{ user_data.household_size }} <span data-translate-key="people_unit">People</span></div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-home"></i></div>
+      <div class="label" data-translate-key="rooftop_area_label">Rooftop Area</div>
+      <div class="value">{{ user_data.rooftop_area | round(1) }} m²</div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-expand-arrows-alt"></i></div>
+      <div class="label" data-translate-key="open_space_label">Open Space</div>
+      <div class="value">{{ user_data.open_space_area | round(1) }} m²</div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-building"></i></div>
+      <div class="label" data-translate-key="property_type_label">Property Type</div>
+      <div class="value">{{ user_data.property_type }}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
