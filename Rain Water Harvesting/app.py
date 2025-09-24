@@ -454,6 +454,11 @@ def subsidy_checker_page():
     """Serves the static subsidy checker HTML file."""
     return render_template('subsidy-checker.html')
 
+@app.route('/resources')
+def resources_page():
+    """Serves the resources page with learning materials."""
+    return render_template('resources.html')
+
 @app.route('/submit_form', methods=['POST'])
 def submit_form():
     # Retrieve form data including new fields
