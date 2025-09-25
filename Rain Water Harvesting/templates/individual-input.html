@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Enter your property details for a personalized rooftop rainwater harvesting assessment.">
+  <title>Property Details - Rooftop Rainwater Harvesting</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    /* Using the same styles as location-input for consistency */
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%);
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 25px 45px rgba(0, 0, 0, 0.1);
+    }
+    .glass-input {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      transition: all 0.3s ease;
+    }
+    .glass-input:focus {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(34, 211, 238, 0.5);
+      outline: none;
+      box-shadow: 0 0 20px rgba(34, 211, 238, 0.1);
+    }
+    .glass-input::placeholder { color: rgba(255, 255, 255, 0.6); }
+    .glass-button {
+      background: rgba(34, 211, 238, 0.2);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(34, 211, 238, 0.3);
+      transition: all 0.3s ease;
+    }
+    .glass-button:hover {
+      background: rgba(34, 211, 238, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(34, 211, 238, 0.2);
+    }
+    .form-group {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .section-title {
+      color: #22d3ee;
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .radio-group {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+    .radio-option {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 1rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+    .radio-option:hover {
+      background: rgba(34, 211, 238, 0.1);
+      border-color: rgba(34, 211, 238, 0.3);
+    }
+    .radio-option.selected {
+      background: rgba(34, 211, 238, 0.2);
+      border-color: rgba(34, 211, 238, 0.5);
+    }
+    .radio-option input[type="radio"] { display: none; }
+    .radio-option .icon { font-size: 2rem; color: #22d3ee; margin-bottom: 0.5rem; }
+    .text-primary { color: #22d3ee; }
+    .text-secondary { color: rgba(255, 255, 255, 0.8); }
+    .text-muted { color: rgba(255, 255, 255, 0.6); }
+    .area-calculator {
+      background: rgba(34, 211, 238, 0.1);
+      border: 1px solid rgba(34, 211, 238, 0.2);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-top: 0.5rem;
+    }
+    .nav-buttons {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    select.glass-input option { color: #000000; }
+  </style>
+</head>
+<body>
+  <div class="bg-particles" id="particles"></div>
+  <header class="relative z-10 container mx-auto px-4 py-6 flex justify-between items-center">
+    <img src="{{ url_for('static', filename='img.png') }}" alt="Rooftop Rainwater Harvesting Logo" class="h-12 w-auto rounded-full">
+  </header>
+  <main class="relative z-10 container mx-auto px-4 py-8 max-w-4xl">
+    
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-8">
+          {% for category, message in messages %}
+            <div class="glass-card rounded-xl p-4 mb-4 {{ 'border-red-500 bg-red-900/20' if category == 'error' else 'border-yellow-500 bg-yellow-900/20' }}">
+              <p class="text-white">{{ message }}</p>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="text-center mb-8">
+      <h1 class="text-4xl lg:text-5xl font-bold text-white mb-4">
+        Tell Us About Your
+        <span class="text-primary">Property</span>
+      </h1>
+      <p class="text-secondary text-lg max-w-2xl mx-auto">
+        Provide these details for an accurate assessment. Your location has been saved.
+      </p>
+    </div>
+
+    <form action="{{ url_for('submit_form') }}" method="POST">
+      <div class="grid lg:grid-cols-2 gap-8">
+        <div class="space-y-6">
+          <div class="form-group">
+            <h3 class="section-title">
+              <i class="fas fa-user"></i>
+              Basic Details
+            </h3>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-secondary mb-2">Full Name</label>
+                <input type="text" name="name" placeholder="Enter your full name" class="glass-input w-full px-4 py-3 rounded-lg" required>
+              </div>
+              <div id="household-size-field">
+                <label class="block text-sm font-medium text-secondary mb-2">Household Size</label>
+                <div class="flex items-center space-x-2">
+                  <button type="button" id="household-decrement" class="glass-button px-3 py-2 rounded text-white">-</button>
+                  <input type="number" name="household_size" id="householdSize" min="1" value="1" class="glass-input w-28 text-center px-4 py-3 rounded-lg" required/>
+                  <button type="button" id="household-increment" class="glass-button px-3 py-2 rounded text-white">+</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <h3 class="section-title">
+              <i class="fas fa-tint"></i>
+              Existing Water Sources
+            </h3>
+            <div class="space-y-3">
+              <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" name="existing_water_sources" class="rounded border-gray-600" value="Municipal Supply">
+                <span class="text-secondary">Municipal Water Supply</span>
+              </label>
+              <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" name="existing_water_sources" class="rounded border-gray-600" value="Borewell">
+                <span class="text-secondary">Private Borewell</span>
+              </label>
+              <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" name="existing_water_sources" class="rounded border-gray-600" value="Open Well">
+                <span class="text-secondary">Open Well</span>
+              </label>
+              <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" name="existing_water_sources" class="rounded border-gray-600" value="Water Tanker">
+                <span class="text-secondary">Water Tanker</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        
+        <div class="space-y-6">
+          <div class="form-group">
+            <h3 class="section-title">
+              <i class="fas fa-home"></i>
+              Property Details
+            </h3>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-secondary mb-2">Property Type</label>
+                <select name="property_type" class="glass-input w-full px-4 py-3 rounded-lg" required>
+                    <option value="Residential">Residential</option>
+                    <option value="Commercial">Commercial</option>
+                    <option value="Institutional">Institutional</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-secondary mb-2">Roof Type</label>
+                <select name="roof_type" class="glass-input w-full px-4 py-3 rounded-lg" required>
+                    <option value="concrete">Concrete/RCC</option>
+                    <option value="tile">Tile Roof</option>
+                    <option value="metal">Metal Sheet</option>
+                    <option value="mixed">Mixed</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-secondary mb-2">Building Age</label>
+                <select name="building_age" class="glass-input w-full px-4 py-3 rounded-lg">
+                  <option value="new">New Construction (0-5 years)</option>
+                  <option value="old">Existing Building (5-20 years)</option>
+                  <option value="heritage">Heritage Building (>20 years)</option>
+                </select>
+              </div>
+              <div id="occupancy-field" class="hidden">
+                <label class="block text-sm font-medium text-secondary mb-2">Average Daily Occupancy</label>
+                <input type="number" name="occupancy" placeholder="e.g., 150" class="glass-input w-full px-4 py-3 rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-secondary mb-2">Primary Intended Use of Harvested Water</label>
+                <select name="intended_use" class="glass-input w-full px-4 py-3 rounded-lg" required>
+                  <option value="Drinking">Drinking Water (Potable)</option>
+                  <option value="Gardening">Gardening & Irrigation</option>
+                  <option value="Toilet Flushing">Toilet Flushing</option>
+                  <option value="General Household">General Household Use</option>
+                  <option value="Groundwater Recharge">Groundwater Recharge Only</option>
+                  <option value="Mixed Use">Mixed Use</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <h3 class="section-title">
+              <i class="fas fa-ruler-combined"></i>
+              Area Measurements
+            </h3>
+            <div class="space-y-4">
+                <div class="area-calculator grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div>
+                        <label for="rooftop-length" class="block text-sm font-medium text-secondary">Length (m)</label>
+                        <input type="number" id="rooftop-length" name="rooftop_length" class="glass-input w-full px-3 py-2 rounded-lg mt-1" placeholder="e.g., 15">
+                    </div>
+                    <div>
+                        <label for="rooftop-breadth" class="block text-sm font-medium text-secondary">Breadth (m)</label>
+                        <input type="number" id="rooftop-breadth" name="rooftop_breadth" class="glass-input w-full px-3 py-2 rounded-lg mt-1" placeholder="e.g., 10">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-secondary">Calculated Rooftop Area</label>
+                        <div id="rooftop-area-display" class="glass-input w-full px-3 py-2 rounded-lg mt-1 text-gray-300">0 m²</div>
+                        <input type="hidden" id="rooftop-area" name="rooftop_area" value="0">
+                    </div>
+                </div>
+              <div>
+                <label for="open-space-area" class="block text-sm font-medium text-secondary mb-2">Available Open Area</label>
+                <select id="open-space-area" name="open_space_area" class="glass-input w-full px-4 py-3 rounded-lg" required>
+                    <option value="" disabled selected>Select an estimate</option>
+                    <option value="0">None / Balcony only</option>
+                    <option value="30">Small Yard (e.g., 10 - 50m²)</option>
+                    <option value="125">Medium Garden (e.g., 50 - 200m²)</option>
+                    <option value="300">Large Plot (> 200m²)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="nav-buttons">
+        <a href="{{ url_for('select_assessment_page') }}" class="glass-button px-8 py-3 rounded-lg text-white font-medium">
+          <i class="fas fa-arrow-left mr-2"></i>
+          Back
+        </a>
+        <button type="submit" class="glass-button px-8 py-3 rounded-lg text-white font-medium">
+          Submit & Get Assessment
+          <i class="fas fa-paper-plane ml-2"></i>
+        </button>
+      </div>
+    </form>
+  </main>
+  
+  <footer class="relative z-10 container mx-auto px-4 py-6 text-center">
+    <p class="text-muted text-sm">Supporting sustainable water management across India</p>
+  </footer>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // --- Property Type and Occupancy Field Logic ---
+      const propertyTypeSelect = document.querySelector('select[name="property_type"]');
+      const occupancyField = document.getElementById('occupancy-field');
+
+      function toggleOccupancyField() {
+        const selectedType = propertyTypeSelect.value;
+        if (selectedType === 'Commercial' || selectedType === 'Institutional') {
+          occupancyField.classList.remove('hidden');
+        } else {
+          occupancyField.classList.add('hidden');
+        }
+      }
+
+      propertyTypeSelect.addEventListener('change', toggleOccupancyField);
+      toggleOccupancyField(); // Initial check
+
+      // --- Household Size Increment/Decrement Logic ---
+      const householdSizeInput = document.getElementById('householdSize');
+      const incrementBtn = document.getElementById('household-increment');
+      const decrementBtn = document.getElementById('household-decrement');
+
+      incrementBtn.addEventListener('click', () => {
+        householdSizeInput.value = parseInt(householdSizeInput.value, 10) + 1;
+      });
+
+      decrementBtn.addEventListener('click', () => {
+        const currentValue = parseInt(householdSizeInput.value, 10);
+        if (currentValue > 1) {
+          householdSizeInput.value = currentValue - 1;
+        }
+      });
+
+      // --- Rooftop Area Calculation ---
+      const lengthInput = document.getElementById('rooftop-length');
+      const breadthInput = document.getElementById('rooftop-breadth');
+      const areaDisplay = document.getElementById('rooftop-area-display');
+      const areaInput = document.getElementById('rooftop-area');
+
+      function calculateArea() {
+        const length = parseFloat(lengthInput.value) || 0;
+        const breadth = parseFloat(breadthInput.value) || 0;
+        const area = (length * breadth).toFixed(2);
+        
+        areaDisplay.textContent = `${area} m²`;
+        areaInput.value = area;
+      }
+
+      lengthInput.addEventListener('input', calculateArea);
+      breadthInput.addEventListener('input', calculateArea);
+    });
+  </script>
+</body>
+</html>

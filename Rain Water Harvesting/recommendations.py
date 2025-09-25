@@ -1,4 +1,3 @@
-
 import pandas as pd
 from dataclasses import dataclass
 from typing import List, Dict, Any, Callable
@@ -241,7 +240,7 @@ def determine_category(roof_area, open_space, rainfall, soil_type, gw_depth, inf
                       user_preferences=None, building_age=None, occupancy=None, modification_type=None,
                       space_constraints=None, usage_type=None, deployment_time=None, population_served=None,
                       building_certification=None, roof_type=None, location_type=None, gw_quality=None,
-                      water_quality_required=None, water_demand=None):
+                      water_quality_required=None, water_demand=None, building_type=None):
     """
     Enhanced category determination using scoring and multi-criteria analysis.
 
@@ -266,7 +265,8 @@ def determine_category(roof_area, open_space, rainfall, soil_type, gw_depth, inf
         'location_type': location_type,
         'gw_quality': gw_quality,
         'water_quality_required': water_quality_required,
-        'water_demand': water_demand
+        'water_demand': water_demand,
+        'building_type': building_type.lower() if isinstance(building_type, str) else building_type
     }
     # Remove None values to avoid spurious penalties
     inputs = {k: v for k, v in inputs.items() if v is not None}

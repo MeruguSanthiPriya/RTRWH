@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Details - Rooftop Rainwater Harvesting</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        .bg-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+        .particle {
+            position: absolute;
+            background: rgba(34, 211, 238, 0.1);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-25px); }
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.1);
+        }
+        .text-primary { color: #22d3ee; }
+        .text-secondary { color: rgba(255, 255, 255, 0.8); }
+        .input-field {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: background 0.3s, border-color 0.3s;
+        }
+        .input-field:focus {
+            background: rgba(0, 0, 0, 0.3);
+            border-color: #22d3ee;
+            outline: none;
+        }
+        .btn-primary {
+            background: #22d3ee;
+            color: #0f172a;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(34, 211, 238, 0.2);
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: background 0.3s;
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="text-white">
+    <div class="bg-particles" id="particles"></div>
+    
+    <main class="container mx-auto px-4 py-12 md:py-20 flex flex-col items-center">
+        <div class="card rounded-2xl p-8 md:p-12 w-full max-w-4xl" style="animation: fadeInScale 0.6s ease-out forwards;">
+            <div class="text-center mb-10">
+                <h1 class="text-4xl md:text-5xl font-bold mb-3">Community Details</h1>
+                <p class="text-lg text-secondary">Provide information about your community for a large-scale assessment.</p>
+                <p class="text-sm text-primary mt-2"><i class="fas fa-map-marker-alt mr-2"></i>{{ address }}</p>
+            </div>
+
+            <form id="communityForm" action="{{ url_for('submit_community_form') }}" method="POST">
+                <div class="grid md:grid-cols-2 gap-x-8 gap-y-8">
+                    
+                    <!-- Community Size Section -->
+                    <div class="space-y-6 p-6 rounded-lg" style="background: rgba(0,0,0,0.1);">
+                        <h3 class="text-xl font-semibold text-primary border-b border-primary pb-2 mb-4"><i class="fas fa-users mr-3"></i>Community Size</h3>
+                        <div>
+                            <label for="num_households" class="block text-sm font-medium text-secondary mb-2">Number of Households</label>
+                            <input type="number" id="num_households" name="num_households" placeholder="e.g., 50" class="input-field w-full rounded-md p-3" required>
+                        </div>
+                        <div>
+                            <label for="avg_household_size" class="block text-sm font-medium text-secondary mb-2">Average People per Household</label>
+                            <input type="number" id="avg_household_size" name="avg_household_size" value="4" class="input-field w-full rounded-md p-3" required>
+                        </div>
+                        <div>
+                            <label for="num_buildings" class="block text-sm font-medium text-secondary mb-2">Total Number of Buildings</label>
+                            <input type="number" id="num_buildings" name="num_buildings" placeholder="e.g., 60" class="input-field w-full rounded-md p-3" required>
+                        </div>
+                    </div>
+
+                    <!-- Area Details Section -->
+                    <div class="space-y-6 p-6 rounded-lg" style="background: rgba(0,0,0,0.1);">
+                        <h3 class="text-xl font-semibold text-primary border-b border-primary pb-2 mb-4"><i class="fas fa-ruler-combined mr-3"></i>Area & Usage</h3>
+                        <div>
+                            <label for="avg_rooftop_area" class="block text-sm font-medium text-secondary mb-2">Average Rooftop Area per Building (m²)</label>
+                            <input type="number" id="avg_rooftop_area" name="avg_rooftop_area" placeholder="e.g., 80" class="input-field w-full rounded-md p-3" required>
+                        </div>
+                        <div>
+                            <label for="total_open_space" class="block text-sm font-medium text-secondary mb-2">Total Community Open Space (m²)</label>
+                            <input type="number" id="total_open_space" name="total_open_space" placeholder="Parks, common grounds" class="input-field w-full rounded-md p-3" required>
+                        </div>
+                        <div>
+                            <label for="intended_use" class="block text-sm font-medium text-secondary mb-2">Primary Intended Use</label>
+                            <select id="intended_use" name="intended_use" class="input-field w-full rounded-md p-3 appearance-none">
+                                <option value="Groundwater Recharge">Groundwater Recharge</option>
+                                <option value="Community Gardening">Community Gardening</option>
+                                <option value="Shared Non-Potable Use">Shared Non-Potable Use</option>
+                                <option value="Mixed Use">Mixed Use</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between mt-12">
+                    <a href="{{ url_for('select_assessment_page') }}" class="btn-secondary font-medium py-3 px-6 rounded-lg flex items-center">
+                        <i class="fas fa-arrow-left mr-2"></i>Back
+                    </a>
+                    <button type="submit" class="btn-primary font-bold py-3 px-8 rounded-lg flex items-center">
+                        Submit Assessment<i class="fas fa-paper-plane ml-3"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        // Function to create background particles
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            if (!particlesContainer) return;
+            for (let i = 0; i < 25; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+                particle.style.left = Math.random() * 100 + 'vw';
+                particle.style.top = Math.random() * 100 + 'vh';
+                particle.style.width = Math.random() * 4 + 2 + 'px';
+                particle.style.height = particle.style.width;
+                const duration = Math.random() * 5 + 5;
+                particle.style.animationDuration = duration + 's';
+                particle.style.animationDelay = Math.random() * duration + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+        createParticles();
+    </script>
+</body>
+</html>

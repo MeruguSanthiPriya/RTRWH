@@ -166,32 +166,18 @@
   </div>
 </div>
 
-<!-- Recommended Structures -->
-<div class="report-card animate-fadeInUp">
-  <div class="section-header">
-    <div class="section-icon">
-      <i class="fas fa-tools"></i>
-    </div>
-    <h2 class="section-title">Recommended Structures</h2>
-  </div>
-  
-  <div class="structure-list">
-    {% for structure in analysis.category.recommended_structures %}
-    <div class="structure-item">
-      <i class="fas fa-check-circle"></i>
-      <span>{{ structure }}</span>
-    </div>
-    {% endfor %}
-  </div>
-</div>
 
-<!-- Cost Analysis Button -->
+
+<!-- Action Buttons -->
 <div class="action-buttons">
   <a href="{{ url_for('results_overview', entry_id=user_data.id) }}" class="glass-button secondary">
-    <i class="fas fa-arrow-left"></i> Return to Results Page
+    <i class="fas fa-arrow-left"></i> Return to Overview
   </a>
   <a href="{{ url_for('financial_analysis', entry_id=user_data.id) }}" class="glass-button primary">
     <i class="fas fa-calculator"></i> Cost Analysis
+  </a>
+  <a href="{{ url_for('recommendations', entry_id=user_data.id) }}" class="glass-button primary">
+    View Recommendations <i class="fas fa-arrow-right"></i>
   </a>
 </div>
 {% endblock %}

@@ -452,6 +452,12 @@ document.addEventListener('DOMContentLoaded', () => {
       // Select this option
       option.classList.add('selected');
       input.checked = true;
+
+      // Trigger change event for property type
+      if (name === 'propertyType') {
+        const event = new Event('change', { bubbles: true });
+        input.dispatchEvent(event);
+      }
     });
   });
 
@@ -521,105 +527,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Form validation and submission
   window.submitData = function() { // Expose function to be called by onclick
-    // Collect all form data
-    formData = {
-      // Location data
-      location: {
-        latitude: document.getElementById('latitude').value,
-        longitude: document.getElementById('longitude').value,
-        address: document.getElementById('address').value,
-        pincode: document.getElementById('pincode').value,
-        state: document.getElementById('state').value,
-        district: document.getElementById('district').value,
-        town: document.getElementById('town').value
-      },
-      
-      // Basic details
-      basicDetails: {
-        fullName: document.getElementById('fullName').value,
-        contactNumber: document.getElementById('contactNumber').value,
-        householdSize: document.getElementById('householdSize').value
-      },
-      
-      // Property details
-      propertyDetails: {
-        propertyType: document.querySelector('input[name="propertyType"]:checked')?.value || 'Residential',
-        roofType: document.querySelector('input[name="roofType"]:checked')?.value || 'mixed',
-        rooftopArea: document.getElementById('rooftopArea').value,
-        openSpaceArea: document.getElementById('openSpaceArea').value,
-          // budgetPreference removed — no longer collected client-side
-        intendedUse: document.getElementById('intendedUse').value
-      },
-      
-      // Water sources
-      waterSources: Array.from(document.querySelectorAll('input[name="existing_water_sources"]:checked'))
-                       .map(cb => cb.value),
-      
-      timestamp: new Date().toISOString()
-    };
-    
-    // Validate required fields
-    const requiredFields = [
-      { field: formData.location.latitude, name: 'Latitude' },
-      { field: formData.location.longitude, name: 'Longitude' },
-      { field: formData.basicDetails.fullName, name: 'Full Name' },
-      { field: formData.propertyDetails.rooftopArea, name: 'Rooftop Area' },
-      { field: formData.propertyDetails.openSpaceArea, name: 'Open Space Area' }
-    ];
-    
-    for (const req of requiredFields) {
-      if (!req.field) {
-        alert(`Please provide ${req.name}`);
-        return;
-      }
+    const lat = document.getElementById('latitude').value;
+    const lon = document.getElementById('longitude').value;
+    const address = document.getElementById('address').value;
+
+    if (!lat || !lon || !address) {
+      alert('Please select a location on the map before proceeding.');
+      return;
     }
-    
+
     const submitBtn = document.getElementById('submitData');
     const originalText = submitBtn.innerHTML;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
     submitBtn.disabled = true;
 
-    // --- Reverting to a standard hidden form submission for maximum reliability ---
-    // This method avoids browser quirks with fetch/redirects in cross-origin scenarios.
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '/submit_form';
-    form.style.display = 'none'; // The form is not visible to the user
-
-    const dataToSubmit = {
-      name: formData.basicDetails.fullName,
-      location_name: formData.location.address,
-      user_lat: formData.location.latitude,
-      user_lon: formData.location.longitude,
-      household_size: Math.max(1, parseInt(formData.basicDetails.householdSize || '1', 10) || 1),
-      roof_type: formData.propertyDetails.roofType,
-      rooftop_area: parseFloat(formData.propertyDetails.rooftopArea || 0).toFixed(2),
-      open_space_area: {
-        'none': 5, 
-        'small': 30, 
-        'medium': 125, 
-        'large': 250
-      }[formData.propertyDetails.openSpaceArea] || 0,
-      property_type: formData.propertyDetails.propertyType,
-      existing_water_sources: formData.waterSources.join(','),
-      intended_use: formData.propertyDetails.intendedUse
+    const locationData = {
+      lat: lat,
+      lon: lon,
+      address: address
     };
 
-    // Add each piece of data as a hidden input field to the form
-    for (const key in dataToSubmit) {
-      if (Object.prototype.hasOwnProperty.call(dataToSubmit, key)) {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        input.value = dataToSubmit[key];
-        form.appendChild(input);
+    // Use fetch to send data to the new /submit_location endpoint
+    fetch('/submit_location', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(locationData),
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.redirect_url) {
+        // Redirect to the assessment type selection page on success
+        window.location.href = data.redirect_url;
+      } else {
+        // Handle errors
+        alert(data.error || 'An unknown error occurred.');
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
       }
-    }
-
-    // Append the form to the document and submit it. The browser will now
-    // handle the POST request and the subsequent redirect from the server natively.
-    document.body.appendChild(form);
-    form.submit();
+    })
+    .catch(error => {
+      console.error('Error submitting location:', error);
+      alert('Failed to submit location. Please check your connection and try again.');
+      submitBtn.innerHTML = originalText;
+      submitBtn.disabled = false;
+    });
   };
 
   // Language selector
@@ -649,20 +602,27 @@ document.addEventListener('DOMContentLoaded', () => {
 // Toggle occupancy field based on property type
 const propertyTypeRadios = document.querySelectorAll('input[name="propertyType"]');
 const occupancyField = document.getElementById('occupancy-field');
+const buildingAgeField = document.getElementById('buildingAge');
+
+const communityFields = document.getElementById('community-fields');
+const totalPeopleField = document.getElementById('total-people-field');
+const householdSizeField = document.getElementById('household-size-field');
 
 propertyTypeRadios.forEach(radio => {
   radio.addEventListener('change', () => {
-    if (radio.value === 'Commercial' || radio.value === 'Institutional') {
-      occupancyField.classList.remove('hidden');
-    } else {
-      occupancyField.classList.add('hidden');
-    }
+    const isCommercialOrInstitutional = radio.value === 'Commercial' || radio.value === 'Institutional';
+    const isCommunity = radio.value === 'Community';
+
+    occupancyField.classList.toggle('hidden', !isCommercialOrInstitutional);
+    communityFields.classList.toggle('hidden', !isCommunity);
+    totalPeopleField.classList.toggle('hidden', !isCommunity);
+    householdSizeField.classList.toggle('hidden', isCommunity);
   });
 });
 
 // Initialize map and other components
-initializeMap();
+// initializeMap(); // This function is not defined, so it's commented out.
 
-function initializeMap() {
-  // ... existing map initialization code ...
-}
+// function initializeMap() {
+//   // ... existing map initialization code ...
+// }

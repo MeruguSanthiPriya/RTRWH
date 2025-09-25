@@ -471,7 +471,8 @@ def calculate_comprehensive_feasibility(location_data, user_input):
         water_quality_required=(user_input.intended_use.lower() if user_input.intended_use else None),
         water_demand=(user_input.intended_use.lower() if user_input.intended_use else None),
         modification_type='retrofit' if (user_input.building_age in ['old', 'heritage']) else None,
-        space_constraints='limited' if open_space < 20 else None
+        space_constraints='limited' if open_space < 20 else None,
+        building_type=user_input.property_type
     )
 
     # Extract primary category for backward compatibility
@@ -573,13 +574,85 @@ def resources_page():
     """Serves the resources page with learning materials."""
     return render_template('resources.html')
 
+@app.route('/submit_location', methods=['POST'])
+def submit_location():
+    """
+    Handles the initial location submission from the map.
+    Stores location data in the session and shows the assessment type choice page.
+    """
+    data = request.get_json()
+    lat = data.get('lat')
+    lon = data.get('lon')
+    address = data.get('address')
+
+    # Basic validation
+    if not lat or not lon or not address:
+        return jsonify({'error': 'Missing location data'}), 400
+
+    # Store location data in session
+    session['latitude'] = lat
+    session['longitude'] = lon
+    session['address'] = address
+    
+    # Instead of redirecting, we'll confirm success and let the frontend handle the redirect
+    return jsonify({'message': 'Location received, proceed to assessment type selection.', 'redirect_url': url_for('select_assessment_page')})
+
+@app.route('/assessment-type')
+def select_assessment_page():
+    """Renders the page for choosing between Individual and Community assessment."""
+    # Ensure location data is in session before showing this page
+    if 'latitude' not in session:
+        flash('Please select a location on the map first.', 'warning')
+        return redirect(url_for('location_input_page'))
+    return render_template('assessment-type.html')
+
+@app.route('/select_assessment', methods=['POST'])
+def select_assessment():
+    """
+    Handles the assessment type choice and redirects to the
+    appropriate detailed input form.
+    """
+    assessment_type = request.form.get('assessment_type')
+
+    if not assessment_type:
+        flash('Please select an assessment type.', 'error')
+        return redirect(url_for('select_assessment_page'))
+
+    # Store the choice in the session
+    session['assessment_type'] = assessment_type
+
+    if assessment_type == 'Individual':
+        # Redirect to a new page for individual inputs
+        return redirect(url_for('individual_input_page'))
+    elif assessment_type == 'Community':
+        # Redirect to the existing community input page
+        return redirect(url_for('community_input_page'))
+    else:
+        flash('Invalid assessment type selected.', 'error')
+        return redirect(url_for('select_assessment_page'))
+
+@app.route('/individual-input')
+def individual_input_page():
+    """Serves the page for individual user inputs, after location is set."""
+    if 'latitude' not in session:
+        flash('Please select a location first.', 'warning')
+        return redirect(url_for('location_input_page'))
+    return render_template('individual-input.html')
+
+
 @app.route('/submit_form', methods=['POST'])
 def submit_form():
+    # --- Retrieve location data from session ---
+    user_lat = session.get('latitude')
+    user_lon = session.get('longitude')
+    location_name = session.get('address')
+
+    if not all([user_lat, user_lon, location_name]):
+        flash("Your session has expired. Please select a location again.", "error")
+        return redirect(url_for('location_input_page'))
+
     # Retrieve form data including new fields
     name = request.form.get('name')
-    location_name = request.form.get('location_name')
-    user_lat = request.form.get('user_lat')
-    user_lon = request.form.get('user_lon')
     household_size = request.form.get('household_size')
     rooftop_area = request.form.get('rooftop_area')
     open_space_area = request.form.get('open_space_area')  # NEW
@@ -590,49 +663,34 @@ def submit_form():
     building_age = request.form.get('building_age')  # NEW
     occupancy = request.form.get('occupancy')  # NEW (optional – only for commercial)
     
+    # --- Community Flow is now handled by /select_assessment ---
+    # The old check 'if property_type == 'Community':' is no longer needed here.
+
     # Validate required fields
     name_valid, name_result = validate_name(name)
     if not name_valid:
         flash(name_result, "error")
-        return redirect(url_for('index_page'))
-    
-    location_valid, location_result = validate_location_name(location_name)
-    if not location_valid:
-        flash(location_result, "error")
-        return redirect(url_for('index_page'))
-    
-    # Validate latitude and longitude
-    lat_valid, lat_result = validate_latitude(user_lat)
-    if not lat_valid:
-        flash(lat_result, "error")
-        return redirect(url_for('index_page'))
-    
-    lon_valid, lon_result = validate_longitude(user_lon)
-    if not lon_valid:
-        flash(lon_result, "error")
-        return redirect(url_for('index_page'))
+        return redirect(url_for('individual_input_page'))
     
     # Validate household size
     size_valid, size_result = validate_household_size(household_size)
     if not size_valid:
         flash(size_result, "error")
-        return redirect(url_for('index_page'))
+        return redirect(url_for('individual_input_page'))
     
     # Validate rooftop area
     area_valid, area_result = validate_rooftop_area(rooftop_area)
     if not area_valid:
         flash(area_result, "error")
-        return redirect(url_for('index_page'))
+        return redirect(url_for('individual_input_page'))
     
     # Validate open space area
     space_valid, space_result = validate_open_space_area(open_space_area)
     if not space_valid:
         flash(space_result, "error")
-        return redirect(url_for('index_page'))
+        return redirect(url_for('individual_input_page'))
     
     # Convert validated values to appropriate types
-    user_lat = lat_result
-    user_lon = lon_result
     household_size = size_result
     rooftop_area = area_result
     open_space_area = space_result
@@ -658,8 +716,83 @@ def submit_form():
     db.session.add(new_entry)
     db.session.commit()
     
+    # Clear session data after successful submission
+    session.pop('latitude', None)
+    session.pop('longitude', None)
+    session.pop('address', None)
+    session.pop('assessment_type', None)
+
     # Reverting to a standard redirect, which works best with a native form submission
     # and is more reliable in avoiding browser navigation quirks.
+    return redirect(url_for('results_page', entry_id=new_entry.id))
+
+@app.route('/community-input')
+def community_input_page():
+    """Serves the community input page."""
+    # Pass session data to the template if it exists
+    return render_template('community-input.html',
+                           location_name=session.get('address'),
+                           user_lat=session.get('latitude'),
+                           user_lon=session.get('longitude'))
+
+@app.route('/submit_community_form', methods=['POST'])
+def submit_community_form():
+    # --- Retrieve location data from session ---
+    user_lat = session.get('latitude')
+    user_lon = session.get('longitude')
+    location_name = session.get('address')
+    property_type = session.get('assessment_type', 'Community') # Get from session
+
+    if not all([user_lat, user_lon, location_name]):
+        flash("Your session has expired. Please select a location again.", "error")
+        return redirect(url_for('location_input_page'))
+
+    # Basic info from hidden fields
+    name = request.form.get('name', 'Community User')
+    
+    # Community-specific fields
+    num_households = request.form.get('num_households', type=int)
+    avg_household_size = request.form.get('avg_household_size', type=int)
+    num_buildings = request.form.get('num_buildings', type=int)
+    avg_rooftop_area = request.form.get('avg_rooftop_area', type=float)
+    total_open_space = request.form.get('total_open_space', type=float)
+    intended_use = request.form.get('intended_use')
+
+    # --- Basic Validation ---
+    if not all([location_name, user_lat, user_lon, num_households, num_buildings, avg_rooftop_area, total_open_space]):
+        flash("Missing required community data.", "error")
+        return redirect(url_for('community_input_page'))
+
+    # Aggregate data for the main user input model
+    total_household_size = num_households * avg_household_size
+    total_rooftop_area = num_buildings * avg_rooftop_area
+
+    # Create a new UserInput entry
+    new_entry = UserInput(
+        name=name,
+        location_name=location_name,
+        user_lat=float(user_lat),
+        user_lon=float(user_lon),
+        household_size=total_household_size,
+        rooftop_area=total_rooftop_area,
+        open_space_area=total_open_space,
+        roof_type='mixed',  # Assume mixed for community
+        property_type=property_type,
+        existing_water_sources='Community Sources', # Placeholder
+        intended_use=intended_use,
+        building_age='mixed', # Placeholder
+        occupancy=total_household_size # Use total population as occupancy
+    )
+
+    db.session.add(new_entry)
+    db.session.commit()
+
+    # Clear session data after successful submission
+    session.pop('latitude', None)
+    session.pop('longitude', None)
+    session.pop('address', None)
+    session.pop('assessment_type', None)
+
     return redirect(url_for('results_page', entry_id=new_entry.id))
 
 @app.route('/results/<int:entry_id>')
@@ -1537,6 +1670,7 @@ def get_soil_data_from_api(lat, lon):
     except Exception as e:
         print(f"Unexpected error fetching soil data from ISRIC: {e}")
         return {
+
             "Soil_Type": "Loamy",
             "Infiltration_Rate_mm_per_hr": 15,
             "Soil_Permability_Class": "Medium"

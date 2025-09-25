@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Assessment Type - Rooftop Rainwater Harvesting</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Enhanced styles from location-input.html for consistency */
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+        .bg-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+        .particle {
+            position: absolute;
+            background: rgba(34, 211, 238, 0.1);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-25px); }
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+            cursor: pointer;
+        }
+        .card:hover {
+            transform: translateY(-12px) scale(1.03);
+            box-shadow: 0 35px 55px rgba(0, 0, 0, 0.2);
+            background: rgba(255, 255, 255, 0.12);
+        }
+        .text-primary { color: #22d3ee; }
+        .text-secondary { color: rgba(255, 255, 255, 0.8); }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen text-white p-4">
+    <div class="bg-particles" id="particles"></div>
+    <div class="text-center p-8 relative z-10 max-w-4xl w-full">
+        <div style="animation: fadeInScale 0.6s ease-out forwards;">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4">Choose Your Assessment Type</h1>
+            <p class="text-lg text-secondary mb-12 max-w-2xl mx-auto">Select whether the assessment is for an individual property or a larger community project.</p>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-8 md:gap-12 justify-center">
+            <!-- Individual Assessment Card -->
+            <form action="{{ url_for('select_assessment') }}" method="POST" class="w-full md:w-auto">
+                <input type="hidden" name="assessment_type" value="Individual">
+                <button type="submit" class="card rounded-2xl p-8 md:p-10 w-full h-full text-left" style="animation: fadeInScale 0.7s ease-out 0.2s forwards; opacity: 0;">
+                    <div class="flex items-center justify-center text-primary text-5xl mb-6">
+                        <i class="fas fa-home"></i>
+                    </div>
+                    <h2 class="text-2xl font-semibold mb-3 text-center">Individual</h2>
+                    <p class="text-secondary text-center">A personalized plan for a single home, building, or farm.</p>
+                </button>
+            </form>
+
+            <!-- Community Assessment Card -->
+            <form action="{{ url_for('select_assessment') }}" method="POST" class="w-full md:w-auto">
+                <input type="hidden" name="assessment_type" value="Community">
+                <button type="submit" class="card rounded-2xl p-8 md:p-10 w-full h-full text-left" style="animation: fadeInScale 0.7s ease-out 0.4s forwards; opacity: 0;">
+                    <div class="flex items-center justify-center text-primary text-5xl mb-6">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h2 class="text-2xl font-semibold mb-3 text-center">Community</h2>
+                    <p class="text-secondary text-center">Assess a larger project for a village, neighborhood, or group of properties.</p>
+                </button>
+            </form>
+        </div>
+        <div class="mt-16" style="animation: fadeInScale 0.6s ease-out 0.6s forwards; opacity: 0;">
+            <a href="{{ url_for('location_input_page') }}" class="text-secondary hover:text-primary transition-colors duration-300">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Back to Location Selection
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Function to create background particles
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            if (!particlesContainer) return;
+            for (let i = 0; i < 25; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+                particle.style.left = Math.random() * 100 + 'vw';
+                particle.style.top = Math.random() * 100 + 'vh';
+                particle.style.width = Math.random() * 4 + 2 + 'px';
+                particle.style.height = particle.style.width;
+                const duration = Math.random() * 5 + 5;
+                particle.style.animationDuration = duration + 's';
+                particle.style.animationDelay = Math.random() * duration + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+        createParticles();
+    </script>
+</body>
+</html>
