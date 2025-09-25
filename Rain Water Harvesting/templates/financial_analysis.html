@@ -245,11 +245,35 @@
 </div>
 
 <div class="action-buttons">
-    <a href="{{ url_for('download_report', entry_id=user_data.id) }}" class="glass-button primary btn-download">
+    <a href="#" id="download-pdf-link" class="glass-button primary btn-download">
         <i class="fas fa-file-pdf"></i> <span data-translate-key="download_pdf_button">Download PDF Report</span>
     </a>
     <a href="{{ url_for('interactive_map_page') }}" class="glass-button btn-map-view">
         <i class="fas fa-map-marked-alt"></i> <span data-translate-key="view_interactive_map_button">View Interactive Map</span>
     </a>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Function to update the download link with the current language
+    function updateDownloadLink() {
+        const downloadLink = document.getElementById('download-pdf-link');
+        const lang = localStorage.getItem('language') || 'en';
+        const baseUrl = "{{ url_for('download_report', entry_id=user_data.id) }}";
+        downloadLink.href = `${baseUrl}?lang=${lang}`;
+    }
+
+    // Update the link initially
+    updateDownloadLink();
+
+    // Add an event listener to the language selector if it exists
+    const languageSelector = document.getElementById('languageSelect');
+    if (languageSelector) {
+        languageSelector.addEventListener('change', updateDownloadLink);
+    }
+
+    // Also listen for custom language change events if your app uses them
+    window.addEventListener('languageChanged', updateDownloadLink);
+});
+</script>
 {% endblock %}

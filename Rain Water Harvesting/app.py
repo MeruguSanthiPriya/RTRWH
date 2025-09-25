@@ -4,6 +4,7 @@ from flask import Flask, request, render_template, redirect, url_for, jsonify, s
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import os
+import openpyxl
 from fpdf import FPDF, XPos, YPos
 from datetime import datetime
 import bcrypt
@@ -14,6 +15,7 @@ from database import db
 from models import AquiferMaterial # Add other models as you create them
 from geoalchemy2 import WKTElement
 from sqlalchemy import func
+import json
 
 # --- Validation Functions ---
 def validate_name(name):
@@ -840,149 +842,178 @@ def download_report(entry_id):
 
     analysis = calculate_comprehensive_feasibility(location_data, user_data)
 
+    # --- PDF Translation Setup ---
+    lang = request.args.get('lang', 'en')
+    translations_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'translations')
+    translation_file_path = os.path.join(translations_dir, f'{lang}.json')
+
+    if not os.path.exists(translation_file_path):
+        # Fallback to English if the language file doesn't exist
+        translation_file_path = os.path.join(translations_dir, 'en.json')
+
+    with open(translation_file_path, 'r', encoding='utf-8') as f:
+        t = json.load(f)
+
     # --- PDF Generation with FPDF2 - Now with Unicode font support ---
     class PDF(FPDF):
-        def __init__(self, *args, **kwargs):
+        def __init__(self, lang='en', *args, **kwargs):
             super().__init__(*args, **kwargs)
-            # Let fpdf2 find the bundled DejaVu font file. This is cross-platform.
-            self.add_font('DejaVu', '', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')
-            self.add_font('DejaVu', 'B', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf')
-            self.set_font('DejaVu', '', 12)
+            font_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fonts')
+
+            # --- Font setup based on language ---
+            self.font_name = 'DejaVu' # Default font
+            
+            # Add DejaVu for English, Hindi, and as a fallback
+            dejavu_sans_path = os.path.join(font_dir, 'DejaVuSans.ttf')
+            dejavu_sans_bold_path = os.path.join(font_dir, 'DejaVuSans-Bold.ttf')
+            self.add_font('DejaVu', '', dejavu_sans_path, uni=True)
+            self.add_font('DejaVu', 'B', dejavu_sans_bold_path, uni=True)
+
+            # If language is Telugu, add and switch to Noto Sans Telugu
+            if lang == 'te':
+                noto_telugu_path = os.path.join(font_dir, 'NotoSansTelugu-Regular.ttf')
+                noto_telugu_bold_path = os.path.join(font_dir, 'NotoSansTelugu-Bold.ttf')
+                if os.path.exists(noto_telugu_path) and os.path.exists(noto_telugu_bold_path):
+                    self.add_font('NotoTelugu', '', noto_telugu_path, uni=True)
+                    self.add_font('NotoTelugu', 'B', noto_telugu_bold_path, uni=True)
+                    self.font_name = 'NotoTelugu' # Set as the active font
+            
+            self.set_font(self.font_name, '', 12)
 
         def header(self):
-            self.set_font('DejaVu', 'B', 12)
-            self.cell(0, 10, 'Rooftop Rainwater Harvesting Report', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
+            self.set_font(self.font_name, 'B', 12)
+            self.cell(0, 10, t['report_title'], new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
             self.ln(5)
 
         def footer(self):
             self.set_y(-15)
-            self.set_font('DejaVu', '', 8)
+            self.set_font(self.font_name, '', 8)
             self.cell(0, 10, f'Page {self.page_no()}', align='C')
 
         def section_title(self, title):
-            self.set_font('DejaVu', 'B', 14)
+            self.set_font(self.font_name, 'B', 14)
             self.set_text_color(0, 77, 76)
             self.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
             self.line(self.get_x(), self.get_y(), self.get_x() + 190, self.get_y())
             self.ln(4)
         
         def write_key_value_table(self, data):
-            self.set_font('DejaVu', '', 11)
+            self.set_font(self.font_name, '', 11)
             self.set_text_color(51, 51, 51)
             key_col_width = 65
             val_col_width = self.w - self.l_margin - self.r_margin - key_col_width
             line_height = self.font_size * 1.5
             for key, value in data.items():
-                self.set_font('DejaVu', 'B')
+                self.set_font(self.font_name, 'B')
                 self.cell(key_col_width, line_height, key, border=0)
-                self.set_font('DejaVu', '')
+                self.set_font(self.font_name, '')
                 self.multi_cell(val_col_width, line_height, str(value), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             self.ln(5)
 
         def write_list(self, items):
-            self.set_font('DejaVu', '', 11)
+            self.set_font(self.font_name, '', 11)
             self.set_text_color(51, 51, 51)
             for item in items:
                 self.multi_cell(0, 5, f'- {item}')
                 self.ln(2)
             self.ln(5)
 
-    pdf = PDF()
+    pdf = PDF(lang=lang)
     pdf.add_page()
-    pdf.set_font('DejaVu', 'B', 24)
+    pdf.set_font(pdf.font_name, 'B', 24)
     pdf.set_text_color(0, 77, 76)
-    pdf.cell(0, 10, 'Rooftop Rainwater Harvesting Report', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
+    pdf.cell(0, 10, t['report_title'], new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
     pdf.set_font('DejaVu', '', 11)
     pdf.set_text_color(51, 51, 51)
-    pdf.cell(0, 10, f'Report generated on: {datetime.now().strftime("%d %B %Y")}', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
+    pdf.cell(0, 10, f"{t['generated_on'].split('{')[0]}{datetime.now().strftime('%d %B %Y')}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
     pdf.ln(10)
 
-    pdf.section_title('1. Your Property Details')
+    pdf.section_title(t['section1_title'])
     pdf.write_key_value_table({
-        "Property Owner": user_data.name,
-        "Location": user_data.location_name,
-        "Property Type": user_data.property_type,
-        "Household Size": f"{user_data.household_size} People",
-        "Rooftop Area": f"{user_data.rooftop_area:.1f} m²",
-        "Open Space Area": f"{user_data.open_space_area:.1f} m²",
+        t['prop_owner']: user_data.name,
+        t['location']: user_data.location_name,
+        t['prop_type']: user_data.property_type,
+        t['household_size']: f"{user_data.household_size} {t['people']}",
+        t['rooftop_area']: f"{user_data.rooftop_area:.1f} m²",
+        t['open_space_area']: f"{user_data.open_space_area:.1f} m²",
     })
 
-    pdf.section_title('2. Location Analysis')
+    pdf.section_title(t['section2_title'])
     pdf.write_key_value_table({
-        "Data Source": f"Analysis based on data for {location_data['Region_Name']}",
-        "Annual Rainfall": f"{location_data['Rainfall_mm']:.0f} mm",
-        "Soil Type": location_data['Soil_Type'],
-        "Groundwater Depth": f"{location_data['Groundwater_Depth_m']} meters",
-        "Distance to Data Point": f"{location_data['distance']:.1f} km",
+        t['data_source']: t['data_for'].format(region=location_data['Region_Name']),
+        t['annual_rainfall']: f"{location_data['Rainfall_mm']:.0f} mm",
+        t['soil_type']: location_data['Soil_Type'],
+        t['gw_depth']: f"{location_data['Groundwater_Depth_m']} {t['meters']}",
+        t['dist_to_data']: f"{location_data['distance']:.1f} {t['km']}",
     })
 
-    pdf.section_title('3. Hydrogeological Profile')
+    pdf.section_title(t['section3_title'])
     pdf.write_key_value_table({
-        "Aquifer Type": location_data['Aquifer_Type'],
-        "Aquifer Depth": f"{location_data['Aquifer_Depth_Min_m']} - {location_data['Aquifer_Depth_Max_m']} meters",
-        "Infiltration Rate": f"{location_data['Infiltration_Rate_mm_per_hr']} mm/hr",
-        "Water Quality": location_data['Water_Quality'],
-        "Remarks": location_data['Remarks'],
+        t['aquifer_type']: location_data['Aquifer_Type'],
+        t['aquifer_depth']: f"{location_data['Aquifer_Depth_Min_m']} - {location_data['Aquifer_Depth_Max_m']} {t['meters']}",
+        t['infiltration_rate']: f"{location_data['Infiltration_Rate_mm_per_hr']} mm/hr",
+        t['water_quality']: location_data['Water_Quality'],
+        t['remarks']: location_data['Remarks'],
     })
 
-    pdf.section_title('4. Feasibility Assessment')
+    pdf.section_title(t['section4_title'])
     pdf.write_key_value_table({
-        "Annual Harvest Potential": f"{analysis['harvesting_potential']['annual_liters']:,.0f} Liters",
-        "Household Water Demand": f"{analysis['annual_demand']:,.0f} Liters",
-        "Demand Coverage": f"{analysis['feasibility_percentage']}%",
-        "Feasibility Status": analysis['feasibility_status'],
+        t['annual_harvest_potential']: f"{analysis['harvesting_potential']['annual_liters']:,.0f} {t['liters']}",
+        t['household_demand']: f"{analysis['annual_demand']:,.0f} {t['liters']}",
+        t['demand_coverage']: f"{analysis['feasibility_percentage']}%",
+        t['feasibility_status']: analysis['feasibility_status'],
     })
 
-    pdf.section_title('5. Personalized Recommendations')
+    pdf.section_title(t['section5_title'])
     pdf.write_key_value_table({
-        "Category": f"Category {analysis['category']['category']}: {analysis['category']['name']}",
-        "Description": analysis['category']['description'],
+        t['category']: f"{t['category']} {analysis['category']['category']}: {analysis['category']['name']}",
+        t['description']: analysis['category']['description'],
     })
     pdf.set_font('DejaVu', 'B', 11)
-    pdf.cell(0, 10, "Recommended Structures:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.cell(0, 10, t['rec_structures'], new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.write_list(analysis['category']['recommended_structures'])
 
-    pdf.section_title('6. Safety Assessment for Groundwater Recharge')
-    safety_status = "Safe" if analysis['safety_check']['is_safe'] else "Caution Advised"
-    pdf.write_key_value_table({"Status": safety_status})
+    pdf.section_title(t['section6_title'])
+    safety_status = t['safe'] if analysis['safety_check']['is_safe'] else t['caution']
+    pdf.write_key_value_table({t['status']: safety_status})
     if not analysis['safety_check']['is_safe']:
         pdf.set_font('DejaVu', 'B', 11)
-        pdf.cell(0, 10, "Potential Issues:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 10, t['potential_issues'], new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.write_list(analysis['safety_check']['safety_issues'])
         pdf.set_font('DejaVu', 'B', 11)
-        pdf.cell(0, 10, "Alternatives:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 10, t['alternatives'], new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.write_list(analysis['safety_check']['alternatives'])
 
-    pdf.section_title('7. Recommended Dimensions & Costs')
+    pdf.section_title(t['section7_title'])
     pdf.write_key_value_table({
-        "Storage Tank Capacity": f"{analysis['structure_dimensions']['storage']['capacity_liters']:,.0f} Liters",
-        "Storage Tank Est. Cost": analysis['structure_dimensions']['storage']['material_cost'],
+        t['storage_tank_cap']: f"{analysis['structure_dimensions']['storage']['capacity_liters']:,.0f} {t['liters']}",
+        t['storage_tank_cost']: analysis['structure_dimensions']['storage']['material_cost'],
     })
     if 'pit' in analysis['structure_dimensions']:
         pit = analysis['structure_dimensions']['pit']
         pdf.write_key_value_table({
-            "Recharge Pit Dimensions": f"{pit['length_m']}m x {pit['width_m']}m x {pit['depth_m']}m",
-            "Recharge Pit Est. Cost": pit['material_cost'],
+            t['recharge_pit_dims']: f"{pit['length_m']}m x {pit['width_m']}m x {pit['depth_m']}m",
+            t['recharge_pit_cost']: pit['material_cost'],
         })
 
-    pdf.section_title('8. Water Purification Plan')
+    pdf.section_title(t['section8_title'])
     pdf.write_key_value_table({
-        "Intended Use": user_data.intended_use,
-        "Maintenance Schedule": analysis['purification']['maintenance_schedule'],
-        "Est. Treatment System Cost": analysis['purification']['estimated_cost'],
+        t['intended_use']: user_data.intended_use,
+        t['maintenance_schedule']: analysis['purification']['maintenance_schedule'],
+        t['est_treatment_cost']: analysis['purification']['estimated_cost'],
     })
     pdf.set_font('DejaVu', 'B', 11)
-    pdf.cell(0, 10, "Recommended Treatment Sequence:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.cell(0, 10, t['rec_treatment_seq'], new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.write_list(analysis['purification']['treatment_sequence'])
 
-    pdf.section_title('9. Financial Analysis')
+    pdf.section_title(t['section9_title'])
     pdf.write_key_value_table({
-        "Initial Investment": f"₹{analysis['cost_analysis']['total_initial_cost']:,.0f}",
-        "Government Subsidy (30%)": f"₹{analysis['cost_analysis']['subsidy_amount']:,.0f}",
-        "Net Investment": f"₹{analysis['cost_analysis']['net_investment']:,.0f}",
-        "Annual Savings": f"₹{analysis['cost_analysis']['annual_net_savings']:,.0f}",
-        "Payback Period": f"{analysis['cost_analysis']['payback_years']} years",
-        "ROI (20 years)": f"{analysis['cost_analysis']['roi_percentage']}%",
+        t['initial_investment']: f"₹{analysis['cost_analysis']['total_initial_cost']:,.0f}",
+        t['gov_subsidy']: f"₹{analysis['cost_analysis']['subsidy_amount']:,.0f}",
+        t['net_investment']: f"₹{analysis['cost_analysis']['net_investment']:,.0f}",
+        t['annual_savings']: f"₹{analysis['cost_analysis']['annual_net_savings']:,.0f}",
+        t['payback_period']: f"{analysis['cost_analysis']['payback_years']} {t['years']}",
+        t['roi']: f"{analysis['cost_analysis']['roi_percentage']}%",
     })
 
     # The .output() method returns a bytearray, which we convert to bytes
