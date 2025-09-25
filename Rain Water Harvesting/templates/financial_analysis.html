@@ -28,6 +28,13 @@
       <div class="label">Net Investment</div>
       <div class="value">₹{{ "{:,.0f}".format(cost_data.net_investment) }}</div>
     </div>
+    {% if user_data.intended_use and user_data.intended_use|lower in ['drinking','potable','cooking'] %}
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-vial"></i></div>
+      <div class="label">Potable Treatment Premium</div>
+      <div class="value">Included (+{{ ((cost_data.intended_use_modifier - 1.0) * 100)|round(0) }}%)</div>
+    </div>
+    {% endif %}
     <div class="info-item">
       <div class="icon"><i class="fas fa-calendar-alt"></i></div>
       <div class="label">Payback Period</div>

@@ -782,22 +782,23 @@ def financial_analysis():
     
     return render_template('financial_analysis.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis, cost_data=cost_data)
 
-@app.route('/results/purification/<int:entry_id>')
-def purification_page(entry_id):
+## Removed legacy purification_page route
+
+@app.route('/results/measurement_purification/<int:entry_id>')
+def measurement_purification_page(entry_id):
     user_data = UserInput.query.get_or_404(entry_id)
-    
     try:
         location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
         if not location_analysis_data:
             flash("Unable to retrieve location data. Please check your coordinates and try again.", "error")
             return redirect(url_for('results_page', entry_id=entry_id))
     except Exception as e:
-        print(f"Error fetching API data for purification page: {e}")
+        print(f"Error fetching API data for measurement & purification page: {e}")
         flash("An error occurred while analyzing your location. Please try again later.", "error")
         return redirect(url_for('results_page', entry_id=entry_id))
-    
+
     comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
-    return render_template('purification.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis)
+    return render_template('measurement_purification.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis)
 
 @app.route('/results/awareness')
 def awareness_page():
@@ -1808,6 +1809,211 @@ def get_aquifers():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/geo/groundwater')
+def api_geo_groundwater():
+    """GeoJSON endpoint for Ground Water Level Stations, optionally filtered by lat/lon and radius_km."""
+    try:
+        from sqlalchemy import func
+        import json as _json
+        from models import GroundWaterLevelStation
+
+        lat = request.args.get('lat', type=float)
+        lon = request.args.get('lon', type=float)
+        radius_km = request.args.get('radius_km', default=200, type=float)
+
+        query = db.session.query(
+            GroundWaterLevelStation.id,
+            GroundWaterLevelStation.station_na,
+            GroundWaterLevelStation.state_name,
+            GroundWaterLevelStation.district_n,
+            GroundWaterLevelStation.agency_nam,
+            GroundWaterLevelStation.basin_name,
+            GroundWaterLevelStation.geometry
+        )
+
+        if lat is not None and lon is not None:
+            point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), 4326)
+            query = query.filter(
+                func.ST_DWithin(
+                    GroundWaterLevelStation.geometry.cast(db.text('geography')),
+                    point.cast(db.text('geography')),
+                    radius_km * 1000
+                )
+            )
+
+        rows = query.limit(2000).all()
+        features = []
+        for r in rows:
+            geom_json = db.session.scalar(db.func.ST_AsGeoJSON(r.geometry))
+            if not geom_json:
+                continue
+            features.append({
+                'type': 'Feature',
+                'geometry': _json.loads(geom_json),
+                'properties': {
+                    'id': r.id,
+                    'name': r.station_na or 'Unknown',
+                    'state': r.state_name,
+                    'district': r.district_n,
+                    'agency': r.agency_nam,
+                    'basin': r.basin_name
+                }
+            })
+
+        return jsonify({'type': 'FeatureCollection', 'features': features})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geo/aquifers')
+def api_geo_aquifers():
+    """GeoJSON endpoint for Major Aquifers polygons, optionally filtered by lat/lon and radius_km."""
+    try:
+        from sqlalchemy import func
+        import json as _json
+        from models import MajorAquifer
+
+        lat = request.args.get('lat', type=float)
+        lon = request.args.get('lon', type=float)
+        radius_km = request.args.get('radius_km', default=250, type=float)
+
+        query = db.session.query(
+            MajorAquifer.id,
+            MajorAquifer.aquifer,
+            MajorAquifer.state,
+            MajorAquifer.system,
+            MajorAquifer.zone_m,
+            MajorAquifer.geometry
+        )
+
+        if lat is not None and lon is not None:
+            point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), 4326)
+            buffer = func.ST_Buffer(point.cast(db.text('geography')), radius_km * 1000)
+            query = query.filter(func.ST_Intersects(MajorAquifer.geometry.cast(db.text('geography')), buffer))
+
+        rows = query.limit(1500).all()
+        features = []
+        for r in rows:
+            geom_json = db.session.scalar(db.func.ST_AsGeoJSON(r.geometry))
+            if not geom_json:
+                continue
+            features.append({
+                'type': 'Feature',
+                'geometry': _json.loads(geom_json),
+                'properties': {
+                    'id': r.id,
+                    'name': r.aquifer or 'Unknown',
+                    'state': r.state,
+                    'system': r.system,
+                    'zone': r.zone_m
+                }
+            })
+
+        return jsonify({'type': 'FeatureCollection', 'features': features})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geo/aquifer-materials')
+def api_geo_aquifer_materials():
+    """GeoJSON endpoint for Aquifer Materials polygons, optionally filtered by lat/lon and radius_km."""
+    try:
+        from sqlalchemy import func
+        import json as _json
+        from models import AquiferMaterial
+
+        lat = request.args.get('lat', type=float)
+        lon = request.args.get('lon', type=float)
+        radius_km = request.args.get('radius_km', default=250, type=float)
+
+        query = db.session.query(
+            AquiferMaterial.id,
+            AquiferMaterial.Name_of_St,
+            AquiferMaterial.Type_of_Aq,
+            AquiferMaterial.st_area_sh,
+            AquiferMaterial.st_length_,
+            AquiferMaterial.geometry
+        )
+
+        if lat is not None and lon is not None:
+            point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), 4326)
+            buffer = func.ST_Buffer(point.cast(db.text('geography')), radius_km * 1000)
+            query = query.filter(func.ST_Intersects(AquiferMaterial.geometry.cast(db.text('geography')), buffer))
+
+        rows = query.limit(1500).all()
+        features = []
+        for r in rows:
+            geom_json = db.session.scalar(db.func.ST_AsGeoJSON(r.geometry))
+            if not geom_json:
+                continue
+            features.append({
+                'type': 'Feature',
+                'geometry': _json.loads(geom_json),
+                'properties': {
+                    'id': r.id,
+                    'state': r.Name_of_St,
+                    'material_type': r.Type_of_Aq,
+                    'area': r.st_area_sh,
+                    'length': r.st_length_
+                }
+            })
+
+        return jsonify({'type': 'FeatureCollection', 'features': features})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geo/gw-quality')
+def api_geo_gw_quality():
+    """GeoJSON endpoint for Ground Water Quality Stations, optionally filtered by lat/lon and radius_km."""
+    try:
+        from sqlalchemy import func
+        import json as _json
+        from models import GroundWaterQualityStation
+
+        lat = request.args.get('lat', type=float)
+        lon = request.args.get('lon', type=float)
+        radius_km = request.args.get('radius_km', default=200, type=float)
+
+        query = db.session.query(
+            GroundWaterQualityStation.id,
+            GroundWaterQualityStation.station_na,
+            GroundWaterQualityStation.state_name,
+            GroundWaterQualityStation.district_n,
+            GroundWaterQualityStation.agency_nam,
+            GroundWaterQualityStation.basin_name,
+            GroundWaterQualityStation.geometry
+        )
+
+        if lat is not None and lon is not None:
+            point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), 4326)
+            query = query.filter(
+                func.ST_DWithin(
+                    GroundWaterQualityStation.geometry.cast(db.text('geography')),
+                    point.cast(db.text('geography')),
+                    radius_km * 1000
+                )
+            )
+
+        rows = query.limit(2000).all()
+        features = []
+        for r in rows:
+            geom_json = db.session.scalar(db.func.ST_AsGeoJSON(r.geometry))
+            if not geom_json:
+                continue
+            features.append({
+                'type': 'Feature',
+                'geometry': _json.loads(geom_json),
+                'properties': {
+                    'id': r.id,
+                    'name': r.station_na or 'Unknown',
+                    'state': r.state_name,
+                    'district': r.district_n,
+                    'agency': r.agency_nam,
+                    'basin': r.basin_name
+                }
+            })
+
+        return jsonify({'type': 'FeatureCollection', 'features': features})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 @app.route('/api/recommend-category', methods=['POST'])
 def api_recommend_category():
     """Enhanced API endpoint for category recommendations with scoring and alternatives."""

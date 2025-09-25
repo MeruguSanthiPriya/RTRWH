@@ -1,0 +1,120 @@
+{% extends "base_results.html" %}
+{% block title %}Measurement & Purification - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="report-card animate-fadeInUp">
+  <div class="section-header">
+    <div class="section-icon"><i class="fas fa-vial"></i></div>
+    <h2 class="section-title">Rainwater Harvesting – Measurement & Purification</h2>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-flask"></i></div>
+      <div class="label">Quality of Rainwater</div>
+      <div class="value">
+        <ul style="margin-left:1rem; list-style:disc;">
+          <li><b>Salts</b>: Very low naturally; may increase if stored in concrete or mixed with soil. High salts cause scaling; not suitable for drinking without treatment.</li>
+          <li><b>pH</b>: Pure rain pH ≈ 5.5–6.5 (slightly acidic). Ideal drinking pH: 6.5–8.5.</li>
+          <li><b>Impurities</b>: Dust, leaves, bird droppings; acid rain may add nitrates/sulfates.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-check-circle"></i></div>
+      <div class="label">Is Rainwater Useful?</div>
+      <div class="value">
+        <ul style="margin-left:1rem; list-style:disc;">
+          <li><b>Drinking</b>: Yes, after advanced filtration + pH adjustment.</li>
+          <li><b>Daily Use</b> (wells, flushing, washing, irrigation): Yes, after simple filtration.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="report-card animate-slideInLeft">
+  <div class="section-header">
+    <div class="section-icon"><i class="fas fa-tasks"></i></div>
+    <h2 class="section-title">Purification Measures</h2>
+  </div>
+
+  <h3 style="color:#22d3ee; margin-bottom:0.5rem;">A. Drinking Water</h3>
+  <ul class="treatment-sequence">
+    <li>First Flush Diverter → removes initial dirty water</li>
+    <li>Sand + Charcoal Filter → removes dust, color, odor</li>
+    <li>UV/RO or Ceramic Filter → removes microbes; RO if salts/metals</li>
+    <li>pH Correction → lime or mineral cartridge to balance pH</li>
+  </ul>
+  <div class="note">Required pH: 6.5–8.5</div>
+
+  <h3 style="color:#22d3ee; margin:1.5rem 0 0.5rem;">B. Daily Usage (Wells/Household/Irrigation)</h3>
+  <ul class="treatment-sequence">
+    <li>Mesh Filters / Gutter Screens → block leaves and debris</li>
+    <li>Sand/Gravel Filter → remove suspended particles</li>
+    <li>Settling Tank → allow heavy particles to settle</li>
+  </ul>
+  <div class="note">pH range tolerated: 6.0–8.5</div>
+</div>
+
+<div class="report-card animate-slideInRight">
+  <div class="section-header">
+    <div class="section-icon"><i class="fas fa-layer-group"></i></div>
+    <h2 class="section-title">Detailed Process</h2>
+  </div>
+
+  <h3>1) Sedimentation</h3>
+  <p>Purpose: Remove coarse suspended solids by gravity before filters. Target detention: 30–60 min for households; longer for larger systems.</p>
+  <ul class="treatment-sequence">
+    <li>Calm inlet; sediment/grit trap; first-flush diverter (first 1–2 mm rainfall)</li>
+    <li>Outlet from below surface, above sludge</li>
+    <li>Maintenance: empty first-flush after events; desludge every 1–6 months</li>
+  </ul>
+
+  <h3>2) Filtration</h3>
+  <ul class="treatment-sequence">
+    <li><b>Coarse</b>: Gutter screens; 10–50 µm bag/cartridge pre-filter</li>
+    <li><b>Media</b>: Rapid/multimedia (ESD 0.2–0.5 mm), or slow sand</li>
+    <li><b>Activated Carbon</b>: Taste/odor, organics</li>
+    <li><b>Fine/Membrane</b>: 5→1 µm cartridge; UF (~0.01 µm) or RO (salts/metals)</li>
+  </ul>
+
+  <h3>3) Disinfection</h3>
+  <ul class="treatment-sequence">
+    <li><b>UV</b>: ~40 mJ/cm², needs clear water; no residual</li>
+    <li><b>Chlorination</b>: Maintain 0.2–0.5 mg/L free chlorine</li>
+  </ul>
+
+  <h3>4) Final Polishing / pH Adjustment</h3>
+  <ul class="treatment-sequence">
+    <li>Raise pH if < 6.5 using lime/soda ash or calcite cartridge</li>
+    <li>Remineralize RO permeate with calcite or blending</li>
+  </ul>
+</div>
+
+<div class="report-card animate-fadeInUp">
+  <div class="section-header">
+    <div class="section-icon"><i class="fas fa-balance-scale"></i></div>
+    <h2 class="section-title">Quick Comparison</h2>
+  </div>
+  <div class="info-grid">
+    <div class="info-item">
+      <div class="label">Drinking</div>
+      <div class="value">First-flush + settling + media + carbon + UF/RO + UV; pH 6.5–8.5</div>
+    </div>
+    <div class="info-item">
+      <div class="label">Daily/Wells</div>
+      <div class="value">First-flush + settling + mesh + sand/gravel; optional chlorination</div>
+    </div>
+  </div>
+  <div class="note">Reference: “Types of Filtration Methods in Rainwater Harvesting System” — Chennai Plumbing Company</div>
+</div>
+
+<style>
+.treatment-sequence { padding-left: 1.25rem; }
+.note { color:#a7f3d0; margin-top:0.5rem; }
+</style>
+{% endblock %}
+
+

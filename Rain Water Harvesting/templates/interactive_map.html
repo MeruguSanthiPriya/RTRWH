@@ -77,8 +77,9 @@
         }
         .legend {
             position: absolute;
-            bottom: 30px;
-            left: 10px;
+            bottom: 20px;
+            left: 12px;
+            transform: none;
             z-index: 1000;
             background: rgba(255, 255, 255, 0.9);
             padding: 15px;
@@ -101,6 +102,23 @@
             margin-right: 8px;
             border: 1px solid #ccc;
             border-radius: 50%; /* Make legend colors circles */
+        }
+
+        /* Gradient legend for rainfall */
+        .legend-gradient {
+            width: 260px;
+            height: 14px;
+            background: linear-gradient(90deg, #ffffcc, #a1dab4, #41b6c4, #2c7fb8, #253494);
+            border-radius: 6px;
+            border: 1px solid rgba(0,0,0,0.15);
+            margin-top: 8px;
+        }
+        .legend-scale {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #fff;
+            margin-top: 6px;
         }
 
         /* 3D Bubble Effect for Map Markers */
@@ -163,6 +181,17 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             color: white;
         }
+        .legend h4 { color: #22d3ee; }
+
+        /* Pulsing circle for user bubble */
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.6); }
+            70% { box-shadow: 0 0 0 16px rgba(34, 211, 238, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+        }
     </style>
 </head>
 <body>
@@ -185,33 +214,47 @@
     <div class="map-controls">
         <h3>Visualize by Layer</h3>
         <div class="control-buttons" id="layer-controls">
-            <input type="radio" id="groundwater" name="layer" value="groundwater" checked>
-            <label for="groundwater">Ground Water Stations</label>
+            <input type="radio" id="aquifer" name="layer" value="aquifer">
+            <label for="aquifer">Aquifer Type</label>
 
-            <input type="radio" id="aquifers" name="layer" value="aquifers">
-            <label for="aquifers">Major Aquifers</label>
+            <input type="radio" id="rainfall" name="layer" value="rainfall" checked>
+            <label for="rainfall">Rainfall</label>
 
-            <input type="radio" id="materials" name="layer" value="materials">
-            <label for="materials">Aquifer Materials</label>
+            <input type="radio" id="soil" name="layer" value="soil">
+            <label for="soil">Soil Type</label>
+
+            <input type="radio" id="infiltration" name="layer" value="infiltration">
+            <label for="infiltration">Infiltration Rate</label>
         </div>
     </div>
 
     <div class="legend" id="legend"></div>
+    <script id="user-data" type="application/json">{{ user_location | tojson }}</script>
+    <script id="nearest-data" type="application/json">{{ nearest_location | tojson }}</script>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const userLocationData = {{ user_location | tojson }};
-            const nearestLocation = {{ nearest_location | tojson }};
+            const userLocationData = JSON.parse(document.getElementById('user-data').textContent || 'null');
+            const nearestLocation = JSON.parse(document.getElementById('nearest-data').textContent || 'null');
 
             // Default center if no user location
             let defaultLat = 20.5937; // Center of India
             let defaultLon = 78.9629;
             let defaultZoom = 5;
 
-            // Use user location if available, otherwise use default
-            let centerLat = userLocationData ? userLocationData.Latitude : defaultLat;
-            let centerLon = userLocationData ? userLocationData.Longitude : defaultLon;
-            let zoomLevel = userLocationData ? 12 : defaultZoom;
+            // Use user location if available, otherwise nearest, otherwise default
+            let centerLat = defaultLat;
+            let centerLon = defaultLon;
+            let zoomLevel = defaultZoom;
+            if (userLocationData && userLocationData.Latitude && userLocationData.Longitude) {
+                centerLat = userLocationData.Latitude;
+                centerLon = userLocationData.Longitude;
+                zoomLevel = 12;
+            } else if (nearestLocation && nearestLocation.Latitude && nearestLocation.Longitude) {
+                centerLat = nearestLocation.Latitude;
+                centerLon = nearestLocation.Longitude;
+                zoomLevel = 10;
+            }
 
             // 1. Initialize the map
             let map = L.map('map').setView([centerLat, centerLon], zoomLevel);
@@ -221,6 +264,7 @@
             }).addTo(map);
 
             let geoJsonLayer;
+            let overlayLayer;
 
             // 2. Define color schemes and categories
             const layers = {
@@ -243,13 +287,17 @@
                     name: 'Aquifer Type',
                     property: 'Aquifer_Type',
                     categories: [
-                        { value: 'Confined', color: '#fe9929', label: 'Confined' },
-                        { value: 'Unconfined', color: '#43a2ca', label: 'Unconfined' },
-                        { value: 'Other', color: '#bdbdbd', label: 'Other' }
+                        { value: 'Confined', color: '#f59e0b', label: 'Confined' },
+                        { value: 'Unconfined', color: '#06b6d4', label: 'Unconfined' },
+                        { value: 'Semi-confined', color: '#10b981', label: 'Semi-confined' },
+                        { value: 'Fractured', color: '#8b5cf6', label: 'Fractured' },
+                        { value: 'Other', color: '#9ca3af', label: 'Other' }
                     ],
                     getColor: (value) => {
-                        const category = layers.aquifer.categories.find(c => c.value.toLowerCase() === value.toLowerCase());
-                        return category ? category.color : layers.aquifer.categories.find(c => c.value === 'Other').color;
+                        if (!value) return '#9ca3af';
+                        const v = String(value).toLowerCase();
+                        const match = layers.aquifer.categories.find(c => c.value.toLowerCase() === v);
+                        return match ? match.color : '#9ca3af';
                     }
                 },
                 soil: {
@@ -314,8 +362,8 @@
                             weight: isUserBubble ? 3 : 1,
                             opacity: 1,
                             fillOpacity: 0.85,
-                            color: isUserBubble ? '#FFD700' : '#333',
-                            className: 'map-marker-bubble'
+                            color: isUserBubble ? '#22d3ee' : '#333',
+                            className: isUserBubble ? 'map-marker-bubble pulse' : 'map-marker-bubble'
                         });
                     },
                     onEachFeature: (feature, layer) => {
@@ -345,7 +393,7 @@
                             e.target.setStyle({
                                 fillOpacity: 0.85,
                                 weight: isUserBubble ? 3 : 1,
-                                color: isUserBubble ? '#FFD700' : '#333'
+                                color: isUserBubble ? '#22d3ee' : '#333'
                             });
                         });
                     }
@@ -358,10 +406,37 @@
                     }
                 });
 
-                updateMapLayer('rainfall');
+                updateLegend('rainfall');
+            } else {
+                // If no features (no entry provided), try browser geolocation
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition((pos) => {
+                        const lat = pos.coords.latitude;
+                        const lon = pos.coords.longitude;
+                        map.setView([lat, lon], 13);
+
+                        const userFeature = {
+                            type: 'Feature',
+                            properties: { isUser: true, Region_Name: 'Your Location', State: '-', Rainfall_mm: 0, Soil_Type: '-', Aquifer_Type: '-', Infiltration_Rate_mm_per_hr: 0 },
+                            geometry: { type: 'Point', coordinates: [lon, lat] }
+                        };
+                        geoJsonLayer = L.geoJSON([userFeature], {
+                            pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
+                                radius: 14,
+                                weight: 3,
+                                opacity: 1,
+                                fillOpacity: 0.85,
+                                color: '#22d3ee',
+                                className: 'map-marker-bubble pulse'
+                            })
+                        }).addTo(map);
+                        updateLegend('rainfall');
+                        loadOverlay('rainfall');
+                    });
+                }
             }
 
-            // 5. Update map layer function
+            // 5. Update map layer function (for user bubble coloring by data variable)
             function updateMapLayer(layerKey) {
                 const layerConfig = layers[layerKey];
 
@@ -376,30 +451,158 @@
                 updateLegend(layerKey);
             }
 
-            // 6. Update legend function
+            // 6. Load overlay layers from backend (GeoJSON) and update user bubble color to match
+            async function loadOverlay(layerKey) {
+                if (overlayLayer) {
+                    map.removeLayer(overlayLayer);
+                    overlayLayer = null;
+                }
+
+                const lat = centerLat;
+                const lon = centerLon;
+                const radius = 250; // km
+
+                let url = '';
+                // No overlay fetches for attribute-only layers (aquifer/rainfall/soil/infiltration)
+
+                if (!url) return;
+                let data = null;
+                try {
+                    const res = await fetch(url);
+                    if (!res.ok) {
+                        console.error('Layer fetch failed', layerKey, res.status);
+                        return;
+                    }
+                    data = await res.json();
+                } catch (e) {
+                    console.error('Layer fetch error', layerKey, e);
+                    return;
+                }
+
+                // Major Aquifers removed
+
+                // Aquifer Type is attribute-only; handled by updateMapLayer/legend
+                if (layerKey === 'aquifer') {
+                    updateMapLayer('aquifer');
+                    // Match user color to aquifer type color
+                    let aquiferValue = null;
+                    if (geoJsonLayer) {
+                        geoJsonLayer.eachLayer(l => {
+                            if (l.feature.properties.isUser) {
+                                aquiferValue = l.feature.properties.Aquifer_Type;
+                            }
+                        });
+                    }
+                    const color = layers.aquifer.getColor(aquiferValue);
+                    setUserMarkerColor(color);
+                    updateLegend('aquifer');
+                }
+
+                if (layerKey === 'rainfall') {
+                    // color the user and nearest markers by rainfall; no polygon overlay
+                    updateMapLayer('rainfall');
+                    setUserMarkerColor('#253494');
+                    updateLegend('rainfall');
+                }
+            }
+
+            function setUserMarkerColor(color) {
+                if (!geoJsonLayer) return;
+                geoJsonLayer.eachLayer(layer => {
+                    if (layer.feature.properties.isUser) {
+                        layer.setStyle({ color, fillColor: color });
+                    }
+                });
+            }
+
+            // 7. Update legend function
             function updateLegend(layerKey) {
                 const legendContainer = document.getElementById('legend');
                 const layerConfig = layers[layerKey];
-                
+
+                if (layerKey === 'aquifer') {
+                    const layerConfig = layers.aquifer;
+                    legendContainer.innerHTML = `
+                        <h4>${layerConfig.name}</h4>
+                        <div class="legend-item"><div class="legend-color" style="background:#f59e0b"></div><span>Confined</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background:#06b6d4"></div><span>Unconfined</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background:#10b981"></div><span>Semi-confined</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background:#8b5cf6"></div><span>Fractured</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background:#9ca3af"></div><span>Other</span></div>`;
+                    return;
+                }
+
+                if (layerKey === 'rainfall') {
+                    let html = `<h4>${layerConfig.name}</h4>`;
+                    layerConfig.categories.forEach(c => {
+                        html += `
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: ${c.color};"></div>
+                                <span>${c.label}</span>
+                            </div>`;
+                    });
+                    legendContainer.innerHTML = html;
+                    return;
+                }
+
+                if (layerKey === 'soil') {
+                    legendContainer.innerHTML = `
+                        <h4>${layerConfig.name}</h4>
+                        <div class="legend-item"><div class="legend-color" style="background:#fed976"></div><span>Sandy</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background:#ae017e"></div><span>Loamy</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background:#cc4c02"></div><span>Clayey</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background:#bdbdbd"></div><span>Other</span></div>`;
+                    return;
+                }
+
+                if (layerKey === 'infiltration') {
+                    legendContainer.innerHTML = `
+                        <h4>${layerConfig.name}</h4>
+                        <div class="legend-item"><div class="legend-color" style="background:#fa9fb5"></div><span>Low (<10 mm/hr)</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background:#7bccc4"></div><span>Moderate (10–15)</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background:#2b8cbe"></div><span>High (>15)</span></div>`;
+                    return;
+                }
+
                 let legendHTML = `<h4>${layerConfig.name}</h4>`;
                 layerConfig.categories.forEach(category => {
                     legendHTML += `
                         <div class="legend-item">
                             <div class="legend-color" style="background-color: ${category.color};"></div>
                             <span>${category.label || category.value}</span>
-                        </div>
-                    `;
+                        </div>`;
                 });
                 legendContainer.innerHTML = legendHTML;
             }
 
-            // 7. Event listeners for controls
+            function renderLegendDiscrete(title, items) {
+                const legendContainer = document.getElementById('legend');
+                let legendHTML = `<h4>${title}</h4>`;
+                items.forEach(item => {
+                    legendHTML += `
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: ${item.color};"></div>
+                            <span>${item.label}</span>
+                        </div>`;
+                });
+                legendContainer.innerHTML = legendHTML;
+            }
+
+            // 8. Event listeners for controls
             const controls = document.getElementById('layer-controls');
             controls.addEventListener('change', (event) => {
                 if (event.target.name === 'layer') {
-                    updateMapLayer(event.target.value);
+                    const key = event.target.value;
+                    loadOverlay(key);
+                    // Ensure attribute-only layers recolor immediately
+                    if (['rainfall','soil','infiltration','aquifer'].includes(key)) {
+                        updateMapLayer(key);
+                    }
                 }
             });
+
+            // Load default overlay layer
+            loadOverlay('groundwater');
         });
     </script>
     <script src="{{ url_for('static', filename='js/language-switcher.js') }}"></script>
