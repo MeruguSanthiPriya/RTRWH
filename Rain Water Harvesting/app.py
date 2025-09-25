@@ -1,4 +1,4 @@
-import pandas as pd
+﻿import pandas as pd
 from math import radians, sin, cos, sqrt, asin
 from flask import Flask, request, render_template, redirect, url_for, jsonify, send_from_directory, make_response, session, flash
 from flask_cors import CORS
@@ -8,12 +8,83 @@ from fpdf import FPDF, XPos, YPos
 from datetime import datetime
 import bcrypt
 from functools import wraps
-from recommendations import determine_category, calculate_structure_dimensions, estimate_costs_and_payback, get_purification_recommendations
+from recommendations import determine_category, calculate_structure_dimensions, estimate_costs_and_payback, get_purification_recommendations, calculate_harvesting_potential
 import requests
 from database import db
 from models import AquiferMaterial # Add other models as you create them
 from geoalchemy2 import WKTElement
 from sqlalchemy import func
+
+# --- Validation Functions ---
+def validate_name(name):
+    """Validate name is not empty and has reasonable length"""
+    if not name or not name.strip():
+        return False, "Name cannot be empty"
+    if len(name.strip()) < 2:
+        return False, "Name must be at least 2 characters long"
+    if len(name.strip()) > 100:
+        return False, "Name must be less than 100 characters long"
+    return True, name.strip()
+
+def validate_location_name(location_name):
+    """Validate location name is not empty and has reasonable length"""
+    if not location_name or not location_name.strip():
+        return False, "Location name cannot be empty"
+    if len(location_name.strip()) < 2:
+        return False, "Location name must be at least 2 characters long"
+    if len(location_name.strip()) > 200:
+        return False, "Location name must be less than 200 characters long"
+    return True, location_name.strip()
+
+def validate_latitude(lat):
+    """Validate latitude is within valid range (-90 to 90)"""
+    try:
+        lat_float = float(lat)
+        if not (-90 <= lat_float <= 90):
+            return False, "Latitude must be between -90 and 90 degrees"
+        return True, lat_float
+    except (ValueError, TypeError):
+        return False, "Invalid latitude format"
+
+def validate_longitude(lon):
+    """Validate longitude is within valid range (-180 to 180)"""
+    try:
+        lon_float = float(lon)
+        if not (-180 <= lon_float <= 180):
+            return False, "Longitude must be between -180 and 180 degrees"
+        return True, lon_float
+    except (ValueError, TypeError):
+        return False, "Invalid longitude format"
+
+def validate_rooftop_area(area):
+    """Validate rooftop area is within reasonable bounds (1-5000 sq.m)"""
+    try:
+        area_float = float(area)
+        if not (1 <= area_float <= 5000):
+            return False, "Rooftop area must be between 1 and 5,000 square meters"
+        return True, area_float
+    except (ValueError, TypeError):
+        return False, "Invalid rooftop area format"
+
+def validate_open_space_area(area):
+    """Validate open space area is within reasonable bounds (0-10000 sq.m)"""
+    try:
+        area_float = float(area)
+        if not (0 <= area_float <= 10000):
+            return False, "Open space area must be between 0 and 10,000 square meters"
+        return True, area_float
+    except (ValueError, TypeError):
+        return False, "Invalid open space area format"
+
+def validate_household_size(size):
+    """Validate household size is within reasonable bounds (1-50 people)"""
+    try:
+        size_int = int(size)
+        if not (1 <= size_int <= 50):
+            return False, "Household size must be between 1 and 50 people"
+        return True, size_int
+    except (ValueError, TypeError):
+        return False, "Invalid household size format"
 
 # Initialize the Flask app
 app = Flask(__name__)
@@ -375,6 +446,9 @@ def calculate_comprehensive_feasibility(location_data, user_input):
     # Calculate runoff potential
     runoff_data = calculate_runoff_potential(roof_area, rainfall_mm, runoff_coeff)
 
+    # Calculate harvesting potential with roof-type specific runoff coefficient
+    harvesting_potential = calculate_harvesting_potential(roof_area, rainfall_mm, user_input.roof_type)
+
     # Check artificial recharge safety
     safety_check = validate_artificial_recharge_safety(location_data)
 
@@ -412,7 +486,7 @@ def calculate_comprehensive_feasibility(location_data, user_input):
 
     # Calculate structure dimensions
     structure_dims = calculate_structure_dimensions(
-        runoff_data['annual_liters'],
+        harvesting_potential['annual_liters'],
         infiltration_rate,
         open_space,
         category_info['recharge_feasible']
@@ -427,7 +501,7 @@ def calculate_comprehensive_feasibility(location_data, user_input):
         category_id=category_info['category'],
         location_type=location_type,
         soil_type=soil_type,
-        system_size=runoff_data['annual_liters'],
+        system_size=harvesting_potential['annual_liters'],
         intended_use=user_input.intended_use
     )
 
@@ -444,7 +518,7 @@ def calculate_comprehensive_feasibility(location_data, user_input):
 
     # Overall feasibility score (adjusted by water source priority)
     if annual_demand > 0:
-        base_feasibility = min((runoff_data['annual_liters'] / annual_demand) * 100, 100)
+        base_feasibility = min((harvesting_potential['annual_liters'] / annual_demand) * 100, 100)
         # Apply water source priority boost (up to 20% increase for high-priority cases)
         priority_boost = min(water_source_priority * 0.4, 20)  # Max 20% boost
         feasibility_percentage = min(base_feasibility + priority_boost, 100)
@@ -463,6 +537,7 @@ def calculate_comprehensive_feasibility(location_data, user_input):
 
     return {
         'runoff_data': runoff_data,
+        'harvesting_potential': harvesting_potential,
         'safety_check': safety_check,
         'water_source_priority': water_source_priority,
         'category': category_info,
@@ -513,12 +588,52 @@ def submit_form():
     building_age = request.form.get('building_age')  # NEW
     occupancy = request.form.get('occupancy')  # NEW (optional – only for commercial)
     
-    # Convert to appropriate types
-    user_lat = float(user_lat) if user_lat else None
-    user_lon = float(user_lon) if user_lon else None
-    household_size = int(household_size) if household_size else 0
-    rooftop_area = float(rooftop_area) if rooftop_area else 0.0
-    open_space_area = float(open_space_area) if open_space_area else 0.0
+    # Validate required fields
+    name_valid, name_result = validate_name(name)
+    if not name_valid:
+        flash(name_result, "error")
+        return redirect(url_for('index_page'))
+    
+    location_valid, location_result = validate_location_name(location_name)
+    if not location_valid:
+        flash(location_result, "error")
+        return redirect(url_for('index_page'))
+    
+    # Validate latitude and longitude
+    lat_valid, lat_result = validate_latitude(user_lat)
+    if not lat_valid:
+        flash(lat_result, "error")
+        return redirect(url_for('index_page'))
+    
+    lon_valid, lon_result = validate_longitude(user_lon)
+    if not lon_valid:
+        flash(lon_result, "error")
+        return redirect(url_for('index_page'))
+    
+    # Validate household size
+    size_valid, size_result = validate_household_size(household_size)
+    if not size_valid:
+        flash(size_result, "error")
+        return redirect(url_for('index_page'))
+    
+    # Validate rooftop area
+    area_valid, area_result = validate_rooftop_area(rooftop_area)
+    if not area_valid:
+        flash(area_result, "error")
+        return redirect(url_for('index_page'))
+    
+    # Validate open space area
+    space_valid, space_result = validate_open_space_area(open_space_area)
+    if not space_valid:
+        flash(space_result, "error")
+        return redirect(url_for('index_page'))
+    
+    # Convert validated values to appropriate types
+    user_lat = lat_result
+    user_lon = lon_result
+    household_size = size_result
+    rooftop_area = area_result
+    open_space_area = space_result
     occupancy = int(occupancy) if occupancy else None
     
     # Create a new UserInput object with enhanced fields
@@ -533,9 +648,9 @@ def submit_form():
         roof_type=roof_type,
         property_type=property_type,
         existing_water_sources=existing_water_sources,
-        intended_use=intended_use
-    ,building_age=building_age,
-    occupancy=occupancy
+        intended_use=intended_use,
+        building_age=building_age,
+        occupancy=occupancy
     )
     
     db.session.add(new_entry)
@@ -554,7 +669,17 @@ def results_page(entry_id):
 def property_details():
     entry_id = request.args.get('entry_id')
     user_data = UserInput.query.get_or_404(entry_id)
-    location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+    
+    try:
+        location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+        if not location_analysis_data:
+            flash("Unable to retrieve location data. Please check your coordinates and try again.", "error")
+            return redirect(url_for('results_page', entry_id=entry_id))
+    except Exception as e:
+        print(f"Error fetching API data for property details: {e}")
+        flash("An error occurred while analyzing your location. Please try again later.", "error")
+        return redirect(url_for('results_page', entry_id=entry_id))
+    
     comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
     return render_template('property_details.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis)
 
@@ -562,7 +687,17 @@ def property_details():
 def location_analysis():
     entry_id = request.args.get('entry_id')
     user_data = UserInput.query.get_or_404(entry_id)
-    location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+    
+    try:
+        location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+        if not location_analysis_data:
+            flash("Unable to retrieve location data. Please check your coordinates and try again.", "error")
+            return redirect(url_for('results_page', entry_id=entry_id))
+    except Exception as e:
+        print(f"Error fetching API data for location analysis: {e}")
+        flash("An error occurred while analyzing your location. Please try again later.", "error")
+        return redirect(url_for('results_page', entry_id=entry_id))
+    
     comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
     return render_template('location_analysis.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis)
 
@@ -570,7 +705,17 @@ def location_analysis():
 def hydrogeological_profile():
     entry_id = request.args.get('entry_id')
     user_data = UserInput.query.get_or_404(entry_id)
-    location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+    
+    try:
+        location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+        if not location_analysis_data:
+            flash("Unable to retrieve location data. Please check your coordinates and try again.", "error")
+            return redirect(url_for('results_page', entry_id=entry_id))
+    except Exception as e:
+        print(f"Error fetching API data for hydrogeological profile: {e}")
+        flash("An error occurred while analyzing your location. Please try again later.", "error")
+        return redirect(url_for('results_page', entry_id=entry_id))
+    
     comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
     return render_template('hydrogeological_profile.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis)
 
@@ -578,7 +723,17 @@ def hydrogeological_profile():
 def feasibility_assessment():
     entry_id = request.args.get('entry_id')
     user_data = UserInput.query.get_or_404(entry_id)
-    location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+    
+    try:
+        location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+        if not location_analysis_data:
+            flash("Unable to retrieve location data. Please check your coordinates and try again.", "error")
+            return redirect(url_for('results_page', entry_id=entry_id))
+    except Exception as e:
+        print(f"Error fetching API data for feasibility assessment: {e}")
+        flash("An error occurred while analyzing your location. Please try again later.", "error")
+        return redirect(url_for('results_page', entry_id=entry_id))
+    
     comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
     return render_template('feasibility_assessment.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis)
 
@@ -586,7 +741,17 @@ def feasibility_assessment():
 def recommendations():
     entry_id = request.args.get('entry_id')
     user_data = UserInput.query.get_or_404(entry_id)
-    location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+    
+    try:
+        location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+        if not location_analysis_data:
+            flash("Unable to retrieve location data. Please check your coordinates and try again.", "error")
+            return redirect(url_for('results_page', entry_id=entry_id))
+    except Exception as e:
+        print(f"Error fetching API data for recommendations: {e}")
+        flash("An error occurred while analyzing your location. Please try again later.", "error")
+        return redirect(url_for('results_page', entry_id=entry_id))
+    
     comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
     return render_template('recommendations.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis)
 
@@ -594,7 +759,17 @@ def recommendations():
 def financial_analysis():
     entry_id = request.args.get('entry_id')
     user_data = UserInput.query.get_or_404(entry_id)
-    location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+    
+    try:
+        location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+        if not location_analysis_data:
+            flash("Unable to retrieve location data. Please check your coordinates and try again.", "error")
+            return redirect(url_for('results_page', entry_id=entry_id))
+    except Exception as e:
+        print(f"Error fetching API data for financial analysis: {e}")
+        flash("An error occurred while analyzing your location. Please try again later.", "error")
+        return redirect(url_for('results_page', entry_id=entry_id))
+    
     comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
     
     # Get detailed cost analysis using the category from comprehensive analysis
@@ -602,7 +777,7 @@ def financial_analysis():
         category_id=comprehensive_analysis['category']['category'],
         location_type=location_analysis_data.get('location_type', 'urban'),
         soil_type=location_analysis_data.get('soil_type', 'clay'),
-        system_size=comprehensive_analysis['runoff_data']['annual_liters']
+        system_size=comprehensive_analysis['harvesting_potential']['annual_liters']
     )
     
     return render_template('financial_analysis.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis, cost_data=cost_data)
@@ -610,7 +785,17 @@ def financial_analysis():
 @app.route('/results/purification/<int:entry_id>')
 def purification_page(entry_id):
     user_data = UserInput.query.get_or_404(entry_id)
-    location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+    
+    try:
+        location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+        if not location_analysis_data:
+            flash("Unable to retrieve location data. Please check your coordinates and try again.", "error")
+            return redirect(url_for('results_page', entry_id=entry_id))
+    except Exception as e:
+        print(f"Error fetching API data for purification page: {e}")
+        flash("An error occurred while analyzing your location. Please try again later.", "error")
+        return redirect(url_for('results_page', entry_id=entry_id))
+    
     comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
     return render_template('purification.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis)
 
@@ -621,7 +806,19 @@ def awareness_page():
 @app.route('/results/overview/<int:entry_id>')
 def results_overview(entry_id):
     user_data = UserInput.query.get_or_404(entry_id)
-    return render_template('results_overview.html', user_data=user_data)
+    
+    try:
+        location_analysis_data = get_api_data(user_data.user_lat, user_data.user_lon)
+        if not location_analysis_data:
+            flash("Unable to retrieve location data. Please check your coordinates and try again.", "error")
+            return redirect(url_for('results_page', entry_id=entry_id))
+    except Exception as e:
+        print(f"Error fetching API data for results overview: {e}")
+        flash("An error occurred while analyzing your location. Please try again later.", "error")
+        return redirect(url_for('results_page', entry_id=entry_id))
+    
+    comprehensive_analysis = calculate_comprehensive_feasibility(location_analysis_data, user_data)
+    return render_template('results_overview.html', user_data=user_data, location_data=location_analysis_data, analysis=comprehensive_analysis)
 
 @app.route('/download_report/<int:entry_id>')
 def download_report(entry_id):
@@ -729,7 +926,7 @@ def download_report(entry_id):
 
     pdf.section_title('4. Feasibility Assessment')
     pdf.write_key_value_table({
-        "Annual Harvest Potential": f"{analysis['runoff_data']['annual_liters']:,.0f} Liters",
+        "Annual Harvest Potential": f"{analysis['harvesting_potential']['annual_liters']:,.0f} Liters",
         "Household Water Demand": f"{analysis['annual_demand']:,.0f} Liters",
         "Demand Coverage": f"{analysis['feasibility_percentage']}%",
         "Feasibility Status": analysis['feasibility_status'],
@@ -1042,6 +1239,119 @@ def admin_export_users():
 OPENWEATHERMAP_API_KEY = os.environ.get('OPENWEATHERMAP_API_KEY', '32dc29dca01bde623300f501d45e42dd')
 SOILGRIDS_API_ENDPOINT = "https://rest.isric.org/soilgrids/v2.0/properties/query"
 
+def get_monthly_rainfall_data(lat, lon, api_key):
+    """
+    Fetches monthly rainfall breakdown from OpenWeatherMap 5-day forecast.
+    Returns a dictionary with monthly estimates.
+    """
+    try:
+        forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}&units=metric"
+        response = requests.get(forecast_url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        # Group rainfall by month
+        monthly_rain = {}
+        for item in data.get('list', []):
+            dt = item.get('dt_txt', '')
+            if dt:
+                month = dt.split('-')[1]  # Extract month from YYYY-MM-DD HH:MM:SS
+                rain = item.get('rain', {}).get('3h', 0)
+                monthly_rain[month] = monthly_rain.get(month, 0) + rain
+
+        # Convert 3-hour data to monthly estimates (rough approximation)
+        # Since we only have 5 days, we'll use regional patterns to estimate full months
+        regional_avg = get_location_specific_rainfall_fallback(lat, lon)
+
+        # Estimate monthly distribution based on regional patterns
+        monthly_distribution = {
+            '01': 0.08, '02': 0.07, '03': 0.07, '04': 0.06, '05': 0.08, '06': 0.10,  # Dry season
+            '07': 0.15, '08': 0.15, '09': 0.12, '10': 0.08, '11': 0.03, '12': 0.01   # Monsoon season
+        }
+
+        monthly_breakdown = {}
+        for month, fraction in monthly_distribution.items():
+            monthly_breakdown[month] = regional_avg * fraction
+
+        return monthly_breakdown
+
+    except Exception as e:
+        print(f"Error fetching monthly rainfall data: {e}")
+        # Return default monthly distribution
+        regional_avg = get_location_specific_rainfall_fallback(lat, lon)
+        return {month: regional_avg * frac for month, frac in {
+            '01': 0.08, '02': 0.07, '03': 0.07, '04': 0.06, '05': 0.08, '06': 0.10,
+            '07': 0.15, '08': 0.15, '09': 0.12, '10': 0.08, '11': 0.03, '12': 0.01
+        }.items()}
+
+def get_live_weather_data(lat, lon, api_key):
+    """
+    Fetches current weather conditions including temperature, humidity, and current rain.
+    """
+    try:
+        current_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
+        response = requests.get(current_url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        return {
+            'temperature': data.get('main', {}).get('temp'),
+            'humidity': data.get('main', {}).get('humidity'),
+            'pressure': data.get('main', {}).get('pressure'),
+            'current_rain': data.get('rain', {}).get('1h', 0) or data.get('rain', {}).get('3h', 0),
+            'weather_description': data.get('weather', [{}])[0].get('description', ''),
+            'wind_speed': data.get('wind', {}).get('speed'),
+            'location_name': data.get('name', 'Unknown')
+        }
+
+    except Exception as e:
+        print(f"Error fetching live weather data: {e}")
+        return {
+            'temperature': 25,
+            'humidity': 60,
+            'pressure': 1013,
+            'current_rain': 0,
+            'weather_description': 'Data unavailable',
+            'wind_speed': 5,
+            'location_name': 'Unknown'
+        }
+    """
+    Returns location-specific rainfall fallback values based on regional climate patterns in India.
+    Uses latitude/longitude to determine the region and return appropriate average rainfall.
+    """
+    # Define regional rainfall patterns (approximate annual averages in mm)
+    # Adjusted boundaries to better cover Indian geography
+    regional_rainfall = {
+        # North India (Delhi, Punjab, Haryana, UP, Rajasthan border areas)
+        'north': {'lat_range': (26, 35), 'lon_range': (70, 85), 'rainfall': 700},
+        # North-East India (Assam, Meghalaya, etc.)
+        'northeast': {'lat_range': (24, 29), 'lon_range': (85, 98), 'rainfall': 2500},
+        # East India (West Bengal, Odisha, Bihar)
+        'east': {'lat_range': (20, 27), 'lon_range': (82, 90), 'rainfall': 1500},
+        # Central India (Madhya Pradesh, Chhattisgarh)
+        'central': {'lat_range': (18, 26), 'lon_range': (75, 85), 'rainfall': 1000},
+        # West India (Maharashtra, Gujarat, Rajasthan west)
+        'west': {'lat_range': (15, 26), 'lon_range': (68, 76), 'rainfall': 1000},
+        # South India (Kerala, Karnataka, Tamil Nadu, Andhra)
+        'south': {'lat_range': (8, 18), 'lon_range': (70, 85), 'rainfall': 2000},
+        # North-West (Rajasthan dry regions)
+        'northwest': {'lat_range': (24, 30), 'lon_range': (70, 75), 'rainfall': 300},
+    }
+
+    # Determine region based on coordinates
+    for region, data in regional_rainfall.items():
+        lat_min, lat_max = data['lat_range']
+        lon_min, lon_max = data['lon_range']
+
+        if lat_min <= lat <= lat_max and lon_min <= lon <= lon_max:
+            rainfall = data['rainfall']
+            print(f"Location ({lat:.2f}, {lon:.2f}) falls in {region} region - using {rainfall}mm rainfall fallback")
+            return rainfall
+
+    # Default fallback if coordinates don't match any region
+    print(f"Location ({lat:.2f}, {lon:.2f}) not matched to specific region - using 1000mm default")
+    return 1000
+
 def get_location_specific_rainfall_fallback(lat, lon):
     """
     Returns location-specific rainfall fallback values based on regional climate patterns in India.
@@ -1082,26 +1392,56 @@ def get_location_specific_rainfall_fallback(lat, lon):
 
 def get_rainfall_from_api(lat, lon, api_key):
     """
-    Fetches annual rainfall data from OpenWeatherMap for a given lat/lon.
-    This uses the Climate Normals API to get monthly averages and sums them.
-    Falls back to location-specific regional averages if API fails.
+    Fetches rainfall data from OpenWeatherMap APIs.
+    Uses multiple approaches: 5-day forecast, current weather, and regional fallbacks.
     """
+    # First, try to get rainfall from 5-day forecast (free tier)
     try:
-        # API endpoint for climate normals (monthly averages)
-        url = f"https://api.openweathermap.org/data/2.5/climate/month?lat={lat}&lon={lon}&appid={api_key}"
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+        forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}&units=metric"
+        response = requests.get(forecast_url, timeout=10)
+        response.raise_for_status()
         data = response.json()
 
-        # Sum up the monthly precipitation values to get an annual estimate
-        if 'list' in data and data['list']:
-            # The 'precipitation' value is typically in mm
-            total_precipitation = sum(month.get('precipitation', {}).get('value', 0) for month in data['list'])
-            return total_precipitation if total_precipitation > 0 else get_location_specific_rainfall_fallback(lat, lon)
-        return get_location_specific_rainfall_fallback(lat, lon)  # Default fallback if data structure is unexpected
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching rainfall data from OpenWeatherMap: {e}")
-        return get_location_specific_rainfall_fallback(lat, lon)  # Return location-specific fallback on error
+        # Extract rainfall from forecast (3-hourly data for 5 days = 40 entries)
+        total_rainfall = 0
+        rain_days = 0
+
+        for item in data.get('list', []):
+            rain = item.get('rain', {}).get('3h', 0)  # rainfall in last 3 hours
+            if rain > 0:
+                total_rainfall += rain
+                rain_days += 1
+
+        # If we have rainfall data, extrapolate to annual estimate
+        if total_rainfall > 0:
+            # 5 days of data, extrapolate to annual (365 days)
+            # But adjust for the fact that not all days rain
+            annual_estimate = (total_rainfall / 5) * 365 * (rain_days / len(data.get('list', [])))
+            print(f"Forecast-based rainfall estimate: {annual_estimate:.1f}mm/year")
+            return max(annual_estimate, 100)  # Minimum 100mm to avoid unrealistic values
+
+    except Exception as e:
+        print(f"Forecast API failed: {e}")
+
+    # Fallback: Try current weather for any rain information
+    try:
+        current_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
+        response = requests.get(current_url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        # Check for current rain
+        rain = data.get('rain', {}).get('1h', 0) or data.get('rain', {}).get('3h', 0)
+        if rain > 0:
+            print(f"Current rain detected: {rain}mm - using regional average")
+            # If it's currently raining, use regional average
+            return get_location_specific_rainfall_fallback(lat, lon)
+
+    except Exception as e:
+        print(f"Current weather API failed: {e}")
+
+    # Final fallback: Use regional averages
+    return get_location_specific_rainfall_fallback(lat, lon)
 
 def get_soil_data_from_api(lat, lon):
     """
@@ -1141,8 +1481,29 @@ def get_soil_data_from_api(lat, lon):
             "Infiltration_Rate_mm_per_hr": infiltration_rate,
             "Soil_Permability_Class": "High" if infiltration_rate > 15 else "Medium"
         }
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching soil data from ISRIC: {e}")
+    except requests.exceptions.Timeout:
+        print(f"Timeout error fetching soil data from ISRIC for location ({lat}, {lon})")
+        return {
+            "Soil_Type": "Loamy",
+            "Infiltration_Rate_mm_per_hr": 15,
+            "Soil_Permability_Class": "Medium"
+        }
+    except requests.exceptions.ConnectionError:
+        print(f"Connection error fetching soil data from ISRIC for location ({lat}, {lon})")
+        return {
+            "Soil_Type": "Loamy",
+            "Infiltration_Rate_mm_per_hr": 15,
+            "Soil_Permability_Class": "Medium"
+        }
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP error fetching soil data from ISRIC: {e}")
+        return {
+            "Soil_Type": "Loamy",
+            "Infiltration_Rate_mm_per_hr": 15,
+            "Soil_Permability_Class": "Medium"
+        }
+    except Exception as e:
+        print(f"Unexpected error fetching soil data from ISRIC: {e}")
         return {
             "Soil_Type": "Loamy",
             "Infiltration_Rate_mm_per_hr": 15,
@@ -1161,6 +1522,8 @@ def get_api_data(lat, lon):
         # Convert database record to the expected format
         return {
             "Rainfall_mm": existing_data.rainfall_mm,
+            "Monthly_Rainfall_mm": {},  # Not cached, will be fetched fresh
+            "Live_Weather": {},  # Not cached, will be fetched fresh
             "Soil_Type": existing_data.soil_type,
             "Infiltration_Rate_mm_per_hr": existing_data.infiltration_rate_mm_per_hr,
             "Soil_Permability_Class": existing_data.soil_permability_class,
@@ -1185,7 +1548,13 @@ def get_api_data(lat, lon):
     # 1. Get live rainfall data
     rainfall = get_rainfall_from_api(lat, lon, OPENWEATHERMAP_API_KEY)
 
-    # 2. Get live soil data
+    # 2. Get monthly rainfall breakdown
+    monthly_rainfall = get_monthly_rainfall_data(lat, lon, OPENWEATHERMAP_API_KEY)
+
+    # 3. Get live weather conditions
+    live_weather = get_live_weather_data(lat, lon, OPENWEATHERMAP_API_KEY)
+
+    # 4. Get live soil data
     soil_data = get_soil_data_from_api(lat, lon)
 
     # 3. Get fallback data from the database for groundwater, aquifer, etc.
@@ -1205,6 +1574,8 @@ def get_api_data(lat, lon):
     # 5. Combine all data into a single dictionary
     combined_data = {
         "Rainfall_mm": rainfall,
+        "Monthly_Rainfall_mm": monthly_rainfall,
+        "Live_Weather": live_weather,
         "Soil_Type": soil_data["Soil_Type"],
         "Infiltration_Rate_mm_per_hr": soil_data["Infiltration_Rate_mm_per_hr"],
         "Soil_Permability_Class": soil_data["Soil_Permability_Class"],

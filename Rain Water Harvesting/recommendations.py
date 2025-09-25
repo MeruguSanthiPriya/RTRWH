@@ -573,6 +573,55 @@ def _generate_recommendation_reason(category, match_factors, mismatch_factors):
     return ". ".join(reasons)
 
 
+    return result
+
+def calculate_harvesting_potential(roof_area_m2, rainfall_mm, roof_type):
+    """
+    Calculate the annual water harvesting potential.
+
+    Formula: Harvestable Water = Rooftop Area × Annual Rainfall × Runoff Coefficient
+
+    Args:
+        roof_area_m2 (float): Rooftop area in square meters
+        rainfall_mm (float): Annual rainfall in millimeters
+        roof_type (str): Type of roof material
+
+    Returns:
+        dict: Contains annual_liters, runoff_coefficient, and formatted message
+    """
+    # Debug: print input values
+    # print(f"DEBUG: roof_area_m2={roof_area_m2}, rainfall_mm={rainfall_mm}, roof_type={roof_type}")
+
+    # Runoff coefficients based on roof type (typical values for different materials)
+    runoff_coefficients = {
+        'concrete': 0.85,      # Smooth concrete roofs
+        'asbestos': 0.80,      # Asbestos/cement sheets
+        'metal': 0.90,         # Metal roofs (high runoff)
+        'tile': 0.75,          # Clay/concrete tiles
+        'shingles': 0.80,      # Asphalt shingles
+        'green': 0.60,         # Green/vegetated roofs (lower runoff due to absorption)
+        'flat': 0.82,          # General flat roofs
+        'pitched': 0.88,       # Pitched roofs
+    }
+
+    # Get runoff coefficient, default to 0.85 if roof type not found
+    roof_type_lower = str(roof_type).lower() if roof_type else 'concrete'
+    runoff_coefficient = runoff_coefficients.get(roof_type_lower, 0.85)
+
+    # Calculate annual harvestable water volume in liters
+    # Formula: Area (m²) × Rainfall (mm) × Runoff Coefficient
+    annual_liters = roof_area_m2 * rainfall_mm * runoff_coefficient
+
+    # print(f"DEBUG: runoff_coefficient={runoff_coefficient}, annual_liters={annual_liters}")
+
+    return {
+        'annual_liters': round(annual_liters, 0),
+        'runoff_coefficient': runoff_coefficient,
+        'monthly_average': round(annual_liters / 12, 0),
+        'daily_average': round(annual_liters / 365, 1),
+        'formatted_message': f"You can harvest approximately {round(annual_liters):,} liters/year"
+    }
+
 def get_category_recommendations_with_preferences(user_data, location_data, user_preferences=None):
     """
     Enhanced category recommendation that considers user preferences and provides detailed reasoning.

@@ -1,6 +1,4 @@
 {% extends "base_results.html" %}
-{% block title %}Feasibility Assessment - {{ super() }}{% endblock %}
-
 {% block head_extra %}
 <style>
   /* Category styling */
@@ -48,58 +46,12 @@
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 15px;
-  }
-  
-  .category-description,
-  .category-confidence,
-  .category-reason {
-    padding: 12px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    border-left: 3px solid rgba(255, 255, 255, 0.3);
-  }
-  
-  .category-description strong,
-  .category-confidence strong,
-  .category-reason strong {
-    color: #60a5fa;
-    display: block;
-    margin-bottom: 5px;
-  }
-  
-  .recharge-status {
-    padding: 12px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
     gap: 10px;
-    font-weight: 500;
-  }
-  
-  .recharge-status.feasible {
-    background: rgba(16, 185, 129, 0.2);
-    border: 1px solid rgba(16, 185, 129, 0.3);
-    color: #10b981;
-  }
-  
-  .recharge-status.not-feasible {
-    background: rgba(239, 68, 68, 0.2);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    color: #ef4444;
-  }
-  
-  @media (max-width: 768px) {
-    .category-info {
-      flex-direction: column;
-    }
-    
-    .category-badge {
-      min-width: 150px;
-    }
   }
 </style>
 {% endblock %}
+
+{% block title %}Feasibility Assessment - {{ super() }}{% endblock %}
 
 {% block navbar %}{% endblock %}
 
@@ -112,12 +64,27 @@
     </div>
     <h2 class="section-title" data-translate-key="feasibility_assessment_title">Feasibility Assessment</h2>
   </div>
-  
+
   <div class="info-grid">
     <div class="info-item">
       <div class="icon"><i class="fas fa-cloud-rain"></i></div>
       <div class="label" data-translate-key="annual_harvest_potential_label">Annual Harvest Potential</div>
-      <div class="value">{{ "{:,.0f}".format(analysis.runoff_data.annual_liters) }} <span data-translate-key="liters_unit">Liters</span></div>
+      <div class="value">{{ "{:,.0f}".format(analysis.harvesting_potential.annual_liters) }} <span data-translate-key="liters_unit">Liters</span></div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-calendar-alt"></i></div>
+      <div class="label">Monthly Average</div>
+      <div class="value">{{ "{:,.0f}".format(analysis.harvesting_potential.monthly_average) }} <span data-translate-key="liters_unit">Liters</span></div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-sun"></i></div>
+      <div class="label">Daily Average</div>
+      <div class="value">{{ "{:,.1f}".format(analysis.harvesting_potential.daily_average) }} <span data-translate-key="liters_unit">Liters</span></div>
+    </div>
+    <div class="info-item">
+      <div class="icon"><i class="fas fa-cogs"></i></div>
+      <div class="label">Runoff Coefficient</div>
+      <div class="value">{{ "%.2f"|format(analysis.harvesting_potential.runoff_coefficient) }}</div>
     </div>
     <div class="info-item">
       <div class="icon"><i class="fas fa-home"></i></div>
@@ -134,9 +101,7 @@
       <div class="label" data-translate-key="feasibility_status_label">Feasibility Status</div>
       <div class="value status-{{ analysis.feasibility_status.lower().split(' ')[0] }}">{{ analysis.feasibility_status }}</div>
     </div>
-  </div>
-  
-  <div class="recommendation status-{{ analysis.feasibility_status.lower().split(' ')[0] }}">
+  </div>  <div class="recommendation status-{{ analysis.feasibility_status.lower().split(' ')[0] }}">
     <i class="fas fa-star"></i>
     <strong data-translate-key="summary_label">Summary:</strong> 
     {% if analysis.feasibility_status == "Fully Feasible" %} <span data-translate-key="summary_fully_feasible">Your property can likely meet its entire water demand through rainwater harvesting.</span>
@@ -241,7 +206,7 @@
         labels: ['Annual Water Supply (Harvested)', 'Annual Water Demand'],
         datasets: [{
           label: 'Liters',
-          data: [{{ analysis.runoff_data.annual_liters | tojson }}, {{ analysis.annual_demand | tojson }}],
+          data: [{{ analysis.harvesting_potential.annual_liters | tojson }}, {{ analysis.annual_demand | tojson }}],
           backgroundColor: [
             'rgba(34, 211, 238, 0.6)',
             'rgba(245, 158, 11, 0.6)'

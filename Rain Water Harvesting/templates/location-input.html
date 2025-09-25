@@ -334,6 +334,22 @@
   </header>
   <main class="relative z-10 container mx-auto px-4 py-8 max-w-6xl">
     
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-8">
+          {% for category, message in messages %}
+            <div class="glass-card rounded-xl p-4 mb-4 {{ 'border-red-500 bg-red-900/20' if category == 'error' else 'border-yellow-500 bg-yellow-900/20' }}">
+              <div class="flex items-center">
+                <i class="fas {{ 'fa-exclamation-triangle text-red-400' if category == 'error' else 'fa-info-circle text-yellow-400' }} mr-3"></i>
+                <p class="text-white">{{ message }}</p>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    
     <section id="locationSection" class="section active">
       <div class="text-center mb-8 animate-fadeInScale">
         <h1 class="text-4xl lg:text-5xl font-bold text-white mb-4" data-translate-key="loc_find_location_h1">
@@ -389,13 +405,15 @@
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-medium text-secondary mb-2" data-translate-key="loc_lat_label">Latitude</label>
-                <input type="number" id="latitude" step="any" placeholder="e.g., 28.6139" 
+                <input type="number" id="latitude" step="any" placeholder="e.g., 28.6139 (-90 to 90)" 
                        class="glass-input w-full px-4 py-3 rounded-lg" required>
+                <small class="text-muted text-xs mt-1 block text-gray-400">Range: -90° (South) to +90° (North)</small>
               </div>
               <div>
                 <label class="block text-sm font-medium text-secondary mb-2" data-translate-key="loc_lon_label">Longitude</label>
-                <input type="number" id="longitude" step="any" placeholder="e.g., 77.2090" 
+                <input type="number" id="longitude" step="any" placeholder="e.g., 77.2090 (-180 to 180)" 
                        class="glass-input w-full px-4 py-3 rounded-lg" required>
+                <small class="text-muted text-xs mt-1 block text-gray-400">Range: -180° (West) to +180° (East)</small>
               </div>
             </div>
             
@@ -475,8 +493,9 @@
               
               <div>
                 <label class="block text-sm font-medium text-secondary mb-2" data-translate-key="data_contact_label">Contact Number</label>
-                <input type="tel" id="contactNumber" placeholder="Enter mobile number" 
+                <input type="tel" id="contactNumber" placeholder="e.g., +91 9876543210" 
                        class="glass-input w-full px-4 py-3 rounded-lg">
+                <small class="text-muted text-xs mt-1 block text-gray-400">Include country code for international numbers</small>
               </div>
               
               <div>
@@ -486,7 +505,7 @@
                   <input type="number" id="householdSize" min="1" value="1" class="glass-input w-28 text-center px-4 py-3 rounded-lg"/>
                   <button type="button" id="household-increment" class="glass-button px-3 py-2 rounded text-white">+</button>
                 </div>
-                <small class="text-muted" data-translate-key="data_household_small">Enter family size (minimum 1)</small>
+                <small class="text-muted text-xs mt-1 block text-gray-400">Typical household size: 2-8 people (1-50 allowed)</small>
               </div>
             </div>
           </div>
@@ -614,8 +633,9 @@
             <div class="space-y-4">
               <div>
                 <label class="block text-sm font-medium text-secondary mb-2" data-translate-key="data_rooftop_label">Rooftop Area (m²)</label>
-                <input type="number" id="rooftopArea" placeholder="Enter area in square meters" 
+                <input type="number" id="rooftopArea" placeholder="e.g., 150 (typically 50-500 m²)" 
                        class="glass-input w-full px-4 py-3 rounded-lg">
+                <small class="text-muted text-xs mt-1 block text-gray-400">Typical rooftop areas range from 50-500 m² for residential buildings</small>
                 <div class="area-calculator">
                   <p class="text-sm text-secondary mb-2" data-translate-key="data_calculator_p">
                     <i class="fas fa-calculator mr-1"></i>
