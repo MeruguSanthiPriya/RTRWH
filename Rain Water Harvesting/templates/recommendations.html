@@ -2,6 +2,27 @@
 {% block title %}Recommendations - {{ super() }}{% endblock %}
 
 {% block content %}
+<style>
+.structure-image {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+.structure-2d {
+  width: 100%;
+  height: 120px;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
 <!-- Recommendations -->
 <div class="report-card animate-fadeInUp" id="recommendations">
   <div class="section-header">
@@ -24,9 +45,11 @@
   <div class="structure-grid">
     {% for structure in analysis.category.recommended_structures %}
       <div class="structure-card">
+        <canvas class="structure-2d" id="canvas-{{ loop.index }}"></canvas>
         {% if 'tank' in structure.lower() %}<div class="icon"><i class="fas fa-cube"></i></div>
         {% elif 'pit' in structure.lower() %}<div class="icon"><i class="fas fa-hole"></i></div>
         {% elif 'trench' in structure.lower() %}<div class="icon"><i class="fas fa-ruler-horizontal"></i></div>
+        {% elif 'dam' in structure.lower() %}<div class="icon"><i class="fas fa-water"></i></div>
         {% else %}<div class="icon"><i class="fas fa-stream"></i></div>
         {% endif %}
         <div class="title">{{ structure.split('(')[0] }}</div>
@@ -148,4 +171,810 @@
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const structures = {{ analysis.category.recommended_structures | tojson }};
+  
+  structures.forEach((structure, index) => {
+    const canvasId = `canvas-${index + 1}`;
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width = canvas.clientWidth;
+    const height = canvas.height = canvas.clientHeight;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+    
+    // Draw based on structure type
+    const structureLower = structure.toLowerCase();
+    
+    if (structureLower.includes('tank')) {
+      drawTank(ctx, width/2, height/2);
+    } else if (structureLower.includes('pit')) {
+      drawPit(ctx, width/2, height/2);
+    } else if (structureLower.includes('trench')) {
+      drawTrench(ctx, width/2, height/2);
+    } else if (structureLower.includes('shaft') || structureLower.includes('borewell')) {
+      drawShaft(ctx, width/2, height/2);
+    } else if (structureLower.includes('pond') || structureLower.includes('dam')) {
+      drawPond(ctx, width/2, height/2);
+    } else if (structureLower.includes('well') || structureLower.includes('injection')) {
+      drawWell(ctx, width/2, height/2);
+    } else if (structureLower.includes('filter') || structureLower.includes('filtration')) {
+      drawFilter(ctx, width/2, height/2);
+    } else {
+      drawDefault(ctx, width/2, height/2);
+    }
+    
+    // Add simple animation
+    let animationFrame = 0;
+    function animate() {
+      animationFrame++;
+      ctx.clearRect(0, 0, width, height);
+      
+      if (structureLower.includes('tank')) {
+        drawTank(ctx, width/2, height/2, animationFrame);
+      } else if (structureLower.includes('pit')) {
+        drawPit(ctx, width/2, height/2, animationFrame);
+      } else if (structureLower.includes('trench')) {
+        drawTrench(ctx, width/2, height/2, animationFrame);
+      } else if (structureLower.includes('shaft') || structureLower.includes('borewell')) {
+        drawShaft(ctx, width/2, height/2, animationFrame);
+      } else if (structureLower.includes('pond') || structureLower.includes('dam')) {
+        drawPond(ctx, width/2, height/2, animationFrame);
+      } else if (structureLower.includes('well') || structureLower.includes('injection')) {
+        drawWell(ctx, width/2, height/2, animationFrame);
+      } else if (structureLower.includes('filter') || structureLower.includes('filtration')) {
+        drawFilter(ctx, width/2, height/2, animationFrame);
+      } else {
+        drawDefault(ctx, width/2, height/2, animationFrame);
+      }
+      
+      requestAnimationFrame(animate);
+    }
+    animate();
+  });
+  
+  // Drawing functions
+  function drawTank(ctx, centerX, centerY, frame = 0) {
+    const w = 50, h = 35;
+    const x = centerX - w/2, y = centerY - h/2;
+    
+    // Tank body with rounded ends
+    ctx.fillStyle = '#4a90e2';
+    ctx.fillRect(x, y, w, h);
+    
+    // Tank top (rounded)
+    ctx.beginPath();
+    ctx.arc(centerX, y, w/2, Math.PI, 0);
+    ctx.fill();
+    
+    // Tank bottom (rounded)
+    ctx.beginPath();
+    ctx.arc(centerX, y + h, w/2, 0, Math.PI);
+    ctx.fill();
+    
+    // Water level with realistic waves
+    const waterLevel = h * 0.75 + Math.sin(frame * 0.05) * 2;
+    ctx.fillStyle = '#4682b4';
+    ctx.beginPath();
+    ctx.moveTo(x + 2, y + h - waterLevel);
+    for (let i = 0; i <= w - 4; i += 2) {
+      const wave = Math.sin((i + frame * 2) * 0.1) * 1.5;
+      ctx.lineTo(x + 2 + i, y + h - waterLevel + wave);
+    }
+    ctx.lineTo(x + w - 2, y + h);
+    ctx.lineTo(x + 2, y + h);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Tank outline
+    ctx.strokeStyle = '#2c5aa0';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, w, h);
+    ctx.beginPath();
+    ctx.arc(centerX, y, w/2, Math.PI, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(centerX, y + h, w/2, 0, Math.PI);
+    ctx.stroke();
+    
+    // Inlet pipe with valve
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(centerX - 15, y - 5);
+    ctx.lineTo(centerX - 15, y + 5);
+    ctx.stroke();
+    // Valve wheel
+    ctx.beginPath();
+    ctx.arc(centerX - 15, y + 5, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#666';
+    ctx.fill();
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(centerX - 15, y + 5);
+    ctx.lineTo(centerX - 13, y + 3);
+    ctx.moveTo(centerX - 15, y + 5);
+    ctx.lineTo(centerX - 17, y + 3);
+    ctx.stroke();
+    
+    // Outlet pipe with valve
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(centerX + 15, y + h + 5);
+    ctx.lineTo(centerX + 15, y + h - 5);
+    ctx.stroke();
+    // Valve wheel
+    ctx.beginPath();
+    ctx.arc(centerX + 15, y + h - 5, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#666';
+    ctx.fill();
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(centerX + 15, y + h - 5);
+    ctx.lineTo(centerX + 13, y + h - 3);
+    ctx.moveTo(centerX + 15, y + h - 5);
+    ctx.lineTo(centerX + 17, y + h - 3);
+    ctx.stroke();
+    
+    // Support legs with bolts
+    ctx.fillStyle = '#666';
+    ctx.fillRect(x - 3, y + h, 6, 8);
+    ctx.fillRect(x + w - 3, y + h, 6, 8);
+    // Bolts on legs
+    ctx.fillStyle = '#333';
+    ctx.fillRect(x - 2, y + h + 2, 4, 1);
+    ctx.fillRect(x - 2, y + h + 5, 4, 1);
+    ctx.fillRect(x + w - 2, y + h + 2, 4, 1);
+    ctx.fillRect(x + w - 2, y + h + 5, 4, 1);
+    
+    // Ladder
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x - 8, y + 5);
+    ctx.lineTo(x - 8, y + h - 5);
+    ctx.moveTo(x - 12, y + 5);
+    ctx.lineTo(x - 12, y + h - 5);
+    ctx.stroke();
+    // Ladder rungs
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.moveTo(x - 12, y + 8 + i * 6);
+      ctx.lineTo(x - 8, y + 8 + i * 6);
+      ctx.stroke();
+    }
+    
+    // Pressure gauge
+    ctx.fillStyle = '#f0f0f0';
+    ctx.beginPath();
+    ctx.arc(centerX, y - 8, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Gauge needle
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(centerX, y - 8);
+    ctx.lineTo(centerX + 3, y - 10);
+    ctx.stroke();
+  }
+  
+  function drawPit(ctx, centerX, centerY, frame = 0) {
+    const w = 60, h = 25;
+    const x = centerX - w/2, y = centerY - h/2;
+    
+    // Ground surface
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(x - 10, y + h - 5, w + 20, 8);
+    
+    // Multiple pits (3 pits in a row)
+    for (let pitIndex = 0; pitIndex < 3; pitIndex++) {
+      const pitX = x + 8 + pitIndex * 18;
+      const pitW = 12;
+      
+      // Pit walls (perspective)
+      ctx.fillStyle = '#654321';
+      ctx.beginPath();
+      ctx.moveTo(pitX, y + h);
+      ctx.lineTo(pitX + 2, y);
+      ctx.lineTo(pitX + pitW - 2, y);
+      ctx.lineTo(pitX + pitW, y + h);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Pit outline
+      ctx.strokeStyle = '#654321';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      
+      // Water in pit (animated, slightly different for each pit)
+      const waterHeight = 8 + Math.sin(frame * 0.03 + pitIndex * 0.5) * 2;
+      ctx.fillStyle = '#4682B4';
+      ctx.fillRect(pitX + 1, y + h - waterHeight, pitW - 2, waterHeight);
+      
+      // Gravel layer in each pit
+      ctx.fillStyle = '#D3D3D3';
+      for (let i = 0; i < 3; i++) {
+        const dotX = pitX + 2 + i * 2.5;
+        const dotY = y + h - waterHeight - 2;
+        ctx.beginPath();
+        ctx.arc(dotX, dotY, 0.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    // Connecting pipes between pits
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 2; i++) {
+      const pipeX = x + 8 + 12 + i * 18;
+      ctx.beginPath();
+      ctx.moveTo(pipeX, y + h - 8);
+      ctx.lineTo(pipeX + 6, y + h - 8);
+      ctx.stroke();
+    }
+    
+    // Main inlet pipe
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(centerX - 20, y + h/2);
+    ctx.lineTo(x + 8, y + h/2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(centerX - 20, y + h/2, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#666';
+    ctx.fill();
+    
+    // Main outlet pipe
+    ctx.beginPath();
+    ctx.moveTo(x + w - 8, y + h/2);
+    ctx.lineTo(centerX + 20, y + h/2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(centerX + 20, y + h/2, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  
+  function drawTrench(ctx, centerX, centerY, frame = 0) {
+    const w = 70, h = 15;
+    const x = centerX - w/2, y = centerY - h/2;
+    
+    // Trench sides (perspective with soil layers)
+    ctx.fillStyle = '#8B4513';
+    ctx.beginPath();
+    ctx.moveTo(x, y + h);
+    ctx.lineTo(x + 3, y);
+    ctx.lineTo(x + w - 3, y);
+    ctx.lineTo(x + w, y + h);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Trench outline
+    ctx.strokeStyle = '#654321';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Gravel bedding layer
+    ctx.fillStyle = '#D3D3D3';
+    ctx.fillRect(x + 5, y + h - 6, w - 10, 4);
+    
+    // Gravel inside (animated pebbles)
+    ctx.fillStyle = '#A9A9A9';
+    for (let i = 0; i < 15; i++) {
+      const pebbleX = x + 8 + i * 4 + Math.sin(frame * 0.02 + i) * 1.5;
+      const pebbleY = y + h - 8 + Math.cos(frame * 0.02 + i) * 1;
+      ctx.beginPath();
+      ctx.arc(pebbleX, pebbleY, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Water flow with realistic waves
+    ctx.strokeStyle = '#4682B4';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x + 5, y + h/2);
+    for (let i = 0; i < 18; i++) {
+      const waveX = x + 5 + i * 3.5;
+      const waveY = y + h/2 + Math.sin(frame * 0.08 + i * 0.4) * 1.5;
+      ctx.lineTo(waveX, waveY);
+    }
+    ctx.stroke();
+    
+    // Inlet pipe with concrete collar
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x - 5, y + h/2);
+    ctx.lineTo(x + 5, y + h/2);
+    ctx.stroke();
+    // Concrete collar
+    ctx.fillStyle = '#708090';
+    ctx.fillRect(x - 2, y + h/2 - 3, 6, 6);
+    ctx.strokeStyle = '#2F4F4F';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x - 2, y + h/2 - 3, 6, 6);
+    
+    // Outlet pipe with concrete collar
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x + w - 5, y + h/2);
+    ctx.lineTo(x + w + 5, y + h/2);
+    ctx.stroke();
+    // Concrete collar
+    ctx.fillStyle = '#708090';
+    ctx.fillRect(x + w - 4, y + h/2 - 3, 6, 6);
+    ctx.strokeStyle = '#2F4F4F';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + w - 4, y + h/2 - 3, 6, 6);
+    
+    // Trench lining (geotextile or concrete)
+    ctx.strokeStyle = '#228B22';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath();
+    ctx.moveTo(x + 3, y + 2);
+    ctx.lineTo(x + w - 3, y + 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Water table indicator
+    ctx.fillStyle = '#4682B4';
+    ctx.fillRect(x + 2, y + h - 2, w - 4, 2);
+  }
+  
+  function drawShaft(ctx, centerX, centerY, frame = 0) {
+    const w = 16, h = 50;
+    const x = centerX - w/2, y = centerY - h/2;
+    
+    // Borehole wall with geological layers
+    ctx.fillStyle = '#36454F';
+    ctx.fillRect(x, y, w, h);
+    
+    // Concrete lining
+    ctx.fillStyle = '#708090';
+    ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+    
+    // Geological layers (soil, rock)
+    ctx.strokeStyle = '#8B4513';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([1, 1]);
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.moveTo(x + 3, y + 8 + i * 10);
+      ctx.lineTo(x + w - 3, y + 8 + i * 10);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    
+    // Shaft outline
+    ctx.strokeStyle = '#2F4F4F';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, w, h);
+    
+    // Water level rising with bubbles
+    const waterLevel = 8 + (frame * 0.08) % 35;
+    ctx.fillStyle = '#4682B4';
+    ctx.fillRect(x + 3, y + h - waterLevel, w - 6, waterLevel);
+    
+    // Air bubbles in water
+    ctx.fillStyle = '#87CEEB';
+    for (let i = 0; i < 3; i++) {
+      const bubbleX = x + 6 + i * 3 + Math.sin(frame * 0.1 + i) * 2;
+      const bubbleY = y + h - waterLevel + 5 + i * 8 + Math.sin(frame * 0.05 + i) * 3;
+      if (bubbleY < y + h - 3) {
+        ctx.beginPath();
+        ctx.arc(bubbleX, bubbleY, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    // Well head/platform
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(x - 4, y - 8, w + 8, 8);
+    ctx.strokeRect(x - 4, y - 8, w + 8, 8);
+    
+    // Pump pipe with joints
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(centerX, y - 8);
+    ctx.lineTo(centerX, y + 5);
+    ctx.stroke();
+    
+    // Pipe joints
+    ctx.fillStyle = '#333';
+    for (let i = 0; i < 3; i++) {
+      ctx.fillRect(centerX - 1, y - 5 + i * 8, 2, 2);
+    }
+    
+    // Pump motor (small box)
+    ctx.fillStyle = '#696969';
+    ctx.fillRect(centerX - 6, y - 15, 12, 6);
+    ctx.strokeRect(centerX - 6, y - 15, 12, 6);
+    
+    // Pump switch/control
+    ctx.fillStyle = '#FF0000';
+    ctx.fillRect(centerX + 4, y - 13, 2, 2);
+    
+    // Depth markers
+    ctx.fillStyle = '#FFA500';
+    for (let i = 0; i < 5; i++) {
+      ctx.fillRect(x - 2, y + 5 + i * 8, 2, 1);
+    }
+  }
+  
+  function drawPond(ctx, centerX, centerY, frame = 0) {
+    const w = 65, h = 12;
+    const x = centerX - w/2, y = centerY - h/2;
+    
+    // Ground with grass
+    ctx.fillStyle = '#228B22';
+    ctx.fillRect(x - 15, y + h - 3, w + 30, 6);
+    
+    // Grass texture
+    ctx.strokeStyle = '#32CD32';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 20; i++) {
+      const grassX = x - 10 + i * 4;
+      const grassY = y + h - 1;
+      ctx.beginPath();
+      ctx.moveTo(grassX, grassY);
+      ctx.lineTo(grassX + 1, grassY - 2);
+      ctx.moveTo(grassX + 1, grassY);
+      ctx.lineTo(grassX + 2, grassY - 3);
+      ctx.stroke();
+    }
+    
+    // Water with realistic surface
+    ctx.fillStyle = '#4682B4';
+    ctx.fillRect(x, y, w, h);
+    
+    // Water outline
+    ctx.strokeStyle = '#2E8B57';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, w, h);
+    
+    // Dam wall with concrete details
+    ctx.fillStyle = '#696969';
+    ctx.fillRect(centerX - 4, y - 8, 8, 12);
+    ctx.strokeRect(centerX - 4, y - 8, 8, 12);
+    
+    // Dam wall texture (concrete blocks)
+    ctx.strokeStyle = '#2F4F4F';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(centerX - 4, y - 5 + i * 3);
+      ctx.lineTo(centerX + 4, y - 5 + i * 3);
+      ctx.stroke();
+    }
+    
+    // Ripples with more realistic animation
+    ctx.strokeStyle = '#87CEEB';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+      const rippleX = centerX + Math.sin(frame * 0.03 + i) * 8;
+      const rippleY = y + h/2 + Math.cos(frame * 0.03 + i) * 3;
+      ctx.beginPath();
+      ctx.arc(rippleX, rippleY, 8 + i * 3 + Math.sin(frame * 0.05 + i) * 2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    
+    // Inlet structure
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(x - 12, y + h/2 - 4, 12, 8);
+    ctx.strokeRect(x - 12, y + h/2 - 4, 12, 8);
+    // Inlet pipe
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x - 12, y + h/2);
+    ctx.lineTo(x + 3, y + h/2);
+    ctx.stroke();
+    
+    // Outlet structure
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(x + w, y + h/2 - 4, 12, 8);
+    ctx.strokeRect(x + w, y + h/2 - 4, 12, 8);
+    // Outlet pipe
+    ctx.beginPath();
+    ctx.moveTo(x + w - 3, y + h/2);
+    ctx.lineTo(x + w + 12, y + h/2);
+    ctx.stroke();
+    
+    // Aquatic plants
+    ctx.strokeStyle = '#228B22';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+      const plantX = x + 10 + i * 15;
+      const plantY = y + h - 2;
+      ctx.beginPath();
+      ctx.moveTo(plantX, plantY);
+      ctx.lineTo(plantX - 1, plantY - 4);
+      ctx.moveTo(plantX, plantY);
+      ctx.lineTo(plantX + 1, plantY - 5);
+      ctx.moveTo(plantX, plantY);
+      ctx.lineTo(plantX + 2, plantY - 3);
+      ctx.stroke();
+    }
+    
+    // Water level marker
+    ctx.fillStyle = '#FFA500';
+    ctx.fillRect(x - 2, y + 2, 2, h - 4);
+    ctx.strokeStyle = '#FF8C00';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x - 2, y + 2, 2, h - 4);
+  }
+  
+  function drawWell(ctx, centerX, centerY, frame = 0) {
+    const w = 20, h = 45;
+    const x = centerX - w/2, y = centerY - h/2;
+    
+    // Well stones/bricks (texture)
+    ctx.fillStyle = '#A0522D';
+    for (let i = 0; i < 8; i++) {
+      ctx.fillRect(x + 1, y + 2 + i * 5, w - 2, 3);
+    }
+    
+    // Well structure outline
+    ctx.strokeStyle = '#654321';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, w, h);
+    
+    // Water
+    ctx.fillStyle = '#4682B4';
+    ctx.fillRect(x + 2, y + h - 12, w - 4, 10);
+    
+    // Bucket rope animation
+    const ropeY = y + 8 + Math.sin(frame * 0.03) * 4;
+    ctx.strokeStyle = '#8B4513';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(centerX, y);
+    ctx.lineTo(centerX, ropeY);
+    ctx.stroke();
+    
+    // Bucket
+    ctx.fillStyle = '#654321';
+    ctx.fillRect(centerX - 4, ropeY - 4, 8, 6);
+    ctx.strokeRect(centerX - 4, ropeY - 4, 8, 6);
+    
+    // Well head/covering
+    ctx.fillStyle = '#696969';
+    ctx.fillRect(x - 6, y - 6, w + 12, 6);
+    ctx.strokeRect(x - 6, y - 6, w + 12, 6);
+    
+    // Handle
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(centerX, y - 6, 8, 0, Math.PI);
+    ctx.stroke();
+    
+    // Bucket handle
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(centerX, ropeY - 2, 3, 0, Math.PI);
+    ctx.stroke();
+  }
+  
+  function drawFilter(ctx, centerX, centerY, frame = 0) {
+    const w = 45, h = 35;
+    const x = centerX - w/2, y = centerY - h/2;
+    
+    // Base platform
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(x, y + h - 8, w, 8);
+    ctx.strokeStyle = '#654321';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y + h - 8, w, 8);
+    
+    // Sand layer with grains
+    ctx.fillStyle = '#F4A460';
+    ctx.fillRect(x + 4, y + h - 20, w - 8, 12);
+    ctx.strokeStyle = '#D2691E';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 4, y + h - 20, w - 8, 12);
+    
+    // Individual sand grains
+    ctx.fillStyle = '#DEB887';
+    for (let i = 0; i < 20; i++) {
+      const grainX = x + 6 + (i % 6) * 5.5;
+      const grainY = y + h - 18 + Math.floor(i / 6) * 3;
+      ctx.beginPath();
+      ctx.arc(grainX, grainY, 0.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Gravel layer with pebbles
+    ctx.fillStyle = '#696969';
+    ctx.fillRect(x + 8, y + h - 30, w - 16, 10);
+    ctx.strokeStyle = '#2F4F4F';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 8, y + h - 30, w - 16, 10);
+    
+    // Gravel pieces
+    ctx.fillStyle = '#A9A9A9';
+    for (let i = 0; i < 12; i++) {
+      const gravelX = x + 10 + (i % 4) * 6;
+      const gravelY = y + h - 28 + Math.floor(i / 4) * 3;
+      ctx.beginPath();
+      ctx.arc(gravelX, gravelY, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Collection pipe (perforated)
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(centerX, y + h - 30);
+    ctx.lineTo(centerX, y + h - 8);
+    ctx.stroke();
+    
+    // Perforations in pipe
+    ctx.fillStyle = '#333';
+    for (let i = 0; i < 4; i++) {
+      ctx.fillRect(centerX - 0.5, y + h - 25 + i * 4, 1, 1);
+    }
+    
+    // Inlet pipe with screen
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(centerX, y - 3);
+    ctx.lineTo(centerX, y + h - 30);
+    ctx.stroke();
+    
+    // Inlet screen (mesh)
+    ctx.strokeStyle = '#C0C0C0';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(centerX - 2, y - 1 + i);
+      ctx.lineTo(centerX + 2, y - 1 + i);
+      ctx.stroke();
+    }
+    
+    // Outlet pipe
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(centerX, y + h + 3);
+    ctx.lineTo(centerX, y + h - 8);
+    ctx.stroke();
+    
+    // Water flow animation (droplets)
+    ctx.fillStyle = '#4682B4';
+    for (let i = 0; i < 8; i++) {
+      const dropX = x + 8 + i * 4;
+      const dropY = y + h - 32 + Math.sin(frame * 0.06 + i * 0.5) * 2;
+      ctx.beginPath();
+      ctx.arc(dropX, dropY, 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Filter housing (cylindrical)
+    ctx.strokeStyle = '#2F4F4F';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(centerX, y + h - 15, 18, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Filter label
+    ctx.fillStyle = '#000';
+    ctx.font = '8px Arial';
+    ctx.fillText('FILTER', centerX - 12, y - 5);
+  }
+  
+  function drawDefault(ctx, centerX, centerY, frame = 0) {
+    const w = 45, h = 25;
+    const x = centerX - w/2, y = centerY - h/2;
+    
+    // Foundation/base
+    ctx.fillStyle = '#708090';
+    ctx.fillRect(x, y + h - 6, w, 6);
+    ctx.strokeStyle = '#2F4F4F';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y + h - 6, w, 6);
+    
+    // Main structure with concrete texture
+    ctx.fillStyle = '#A9A9A9';
+    ctx.fillRect(x + 5, y, w - 10, h - 6);
+    ctx.strokeStyle = '#696969';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 5, y, w - 10, h - 6);
+    
+    // Concrete block lines
+    ctx.strokeStyle = '#808080';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(x + 6, y + 5 + i * 6);
+      ctx.lineTo(x + w - 6, y + 5 + i * 6);
+      ctx.stroke();
+    }
+    
+    // Inlet pipe with flange
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(centerX - 12, y + h/2);
+    ctx.lineTo(x + 5, y + h/2);
+    ctx.stroke();
+    // Flange
+    ctx.fillStyle = '#333';
+    ctx.fillRect(centerX - 15, y + h/2 - 2, 4, 4);
+    
+    // Outlet pipe with flange
+    ctx.beginPath();
+    ctx.moveTo(x + w - 5, y + h/2);
+    ctx.lineTo(centerX + 12, y + h/2);
+    ctx.stroke();
+    // Flange
+    ctx.fillStyle = '#333';
+    ctx.fillRect(centerX + 11, y + h/2 - 2, 4, 4);
+    
+    // Water level indicator
+    ctx.fillStyle = '#4682B4';
+    ctx.fillRect(x + 7, y + h - 10, w - 14, 4);
+    
+    // Flow arrows
+    ctx.strokeStyle = '#4682B4';
+    ctx.lineWidth = 2;
+    // Inlet arrow
+    ctx.beginPath();
+    ctx.moveTo(centerX - 8, y + h/2);
+    ctx.lineTo(centerX - 3, y + h/2);
+    ctx.lineTo(centerX - 5, y + h/2 - 2);
+    ctx.moveTo(centerX - 3, y + h/2);
+    ctx.lineTo(centerX - 5, y + h/2 + 2);
+    ctx.stroke();
+    
+    // Outlet arrow
+    ctx.beginPath();
+    ctx.moveTo(centerX + 3, y + h/2);
+    ctx.lineTo(centerX + 8, y + h/2);
+    ctx.lineTo(centerX + 6, y + h/2 - 2);
+    ctx.moveTo(centerX + 8, y + h/2);
+    ctx.lineTo(centerX + 6, y + h/2 + 2);
+    ctx.stroke();
+    
+    // Animated flow particles
+    ctx.fillStyle = '#87CEEB';
+    for (let i = 0; i < 4; i++) {
+      const particleX = x + 10 + i * 8 + Math.sin(frame * 0.03 + i) * 3;
+      const particleY = y + 8 + Math.cos(frame * 0.03 + i) * 2;
+      ctx.beginPath();
+      ctx.arc(particleX, particleY, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Control panel
+    ctx.fillStyle = '#000';
+    ctx.fillRect(centerX - 8, y - 8, 16, 6);
+    ctx.strokeRect(centerX - 8, y - 8, 16, 6);
+    
+    // Indicator lights
+    ctx.fillStyle = '#00FF00';
+    ctx.fillRect(centerX - 6, y - 6, 2, 2);
+    ctx.fillStyle = '#FFFF00';
+    ctx.fillRect(centerX - 2, y - 6, 2, 2);
+    ctx.fillStyle = '#FF0000';
+    ctx.fillRect(centerX + 2, y - 6, 2, 2);
+  }
+});
+</script>
 {% endblock %}
