@@ -6,7 +6,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 import os
 import openpyxl
 from fpdf import FPDF, XPos, YPos
-from datetime import datetime
+from datetime import datetime, timedelta
 import bcrypt
 from functools import wraps
 from recommendations import determine_category, calculate_structure_dimensions, estimate_costs_and_payback, get_purification_recommendations, calculate_harvesting_potential
@@ -1286,61 +1286,58 @@ def get_analytics_data():
     Fetches and processes data for the analytics dashboard.
     This version performs aggregation in Python to avoid database-specific syntax.
     """
-    # 1. Signups over time (by month)
-    signups_by_month = {}
-    all_signups = UserInput.query.with_entities(UserInput.created_at).all()
-    for signup in all_signups:
-        # Ensure created_at is a datetime object
-        if isinstance(signup.created_at, datetime):
-            month_key = signup.created_at.strftime('%Y-%m')
-            signups_by_month[month_key] = signups_by_month.get(month_key, 0) + 1
+    # 1. Signups over time (last 30 days)
+    thirty_days_ago = datetime.utcnow().date() - timedelta(days=30)
+    
+    # Query signups in the last 30 days, grouped by date
+    signups_q = db.session.query(
+        db.func.date(UserInput.created_at),
+        db.func.count(UserInput.id)
+    ).filter(db.func.date(UserInput.created_at) >= thirty_days_ago).group_by(db.func.date(UserInput.created_at)).all()
 
-    # Sort by key (date) to ensure chronological order
-    sorted_signups = sorted(signups_by_month.items())
-    signup_labels = [item[0] for item in sorted_signups]
-    signup_values = [item[1] for item in sorted_signups]
+    # Create a dictionary for quick lookup: { 'YYYY-MM-DD': count }
+    signups_by_date = {result[0].strftime('%Y-%m-%d'): result[1] for result in signups_q}
+
+    # Generate labels and data for the last 30 days, filling in zeros for days with no signups
+    signup_labels = []
+    signup_data = []
+    for i in range(31):
+        current_date = thirty_days_ago + timedelta(days=i)
+        date_str = current_date.strftime('%Y-%m-%d')
+        signup_labels.append(date_str)
+        signup_data.append(signups_by_date.get(date_str, 0))
 
     # 2. Property types distribution
     property_types_q = db.session.query(
         UserInput.property_type, 
         db.func.count(UserInput.property_type)
     ).group_by(UserInput.property_type).order_by(db.func.count(UserInput.property_type).desc()).all()
-    property_labels = [item[0] if item[0] else 'Not Specified' for item in property_types_q]
-    property_values = [item[1] for item in property_types_q]
+    property_types = sorted(property_types_q, key=lambda x: x[1], reverse=True)
 
-    # 3. Average rooftop area by property type
-    avg_rooftop_q = db.session.query(
-        UserInput.property_type,
-        db.func.avg(UserInput.rooftop_area)
-    ).group_by(UserInput.property_type).all()
-    avg_rooftop_labels = [item[0] if item[0] else 'Not Specified' for item in avg_rooftop_q]
-    avg_rooftop_values = [round(item[1], 2) if item[1] else 0 for item in avg_rooftop_q]
+    # 3. Roof types distribution
+    roof_type_counts = db.session.query(
+        UserInput.roof_type,
+        db.func.count(UserInput.roof_type)
+    ).group_by(UserInput.roof_type).order_by(db.func.count(UserInput.roof_type).desc()).all()
+    roof_types = roof_type_counts
 
     # 4. Geographic distribution (top 10 cities)
-    top_cities_q = db.session.query(
+    top_locations_q = db.session.query(
         UserInput.location_name,
         db.func.count(UserInput.location_name)
     ).group_by(UserInput.location_name).order_by(db.func.count(UserInput.location_name).desc()).limit(10).all()
-    city_labels = [item[0] for item in top_cities_q]
-    city_values = [item[1] for item in top_cities_q]
+    top_locations = [(loc[0], loc[1]) for loc in top_locations_q]
+    geo_labels = [loc[0] for loc in top_locations]
+    geo_data = [loc[1] for loc in top_locations]
 
     return {
-        'signups_over_time': {
-            'labels': signup_labels,
-            'data': signup_values
-        },
-        'property_type_distribution': {
-            'labels': property_labels,
-            'data': property_values
-        },
-        'avg_rooftop_area': {
-            'labels': avg_rooftop_labels,
-            'data': avg_rooftop_values
-        },
-        'geographic_distribution': {
-            'labels': city_labels,
-            'data': city_values
-        }
+        'signups_over_time': {'labels': signup_labels, 'data': signup_data},
+        'geographic_distribution': {'labels': geo_labels, 'data': geo_data},
+        'property_type_distribution': {'labels': [pt for pt, c in property_types if pt], 'data': [c for pt, c in property_types if pt]},
+        'roof_type_distribution': {'labels': [rt for rt, c in roof_types if rt], 'data': [c for rt, c in roof_types if rt]},
+        'location_distribution': top_locations,
+        'property_types': property_types,
+        'roof_types': roof_types,
     }
 
 @app.route('/admin/analytics')
@@ -1524,6 +1521,7 @@ def get_live_weather_data(lat, lon, api_key):
 
     # Default fallback if coordinates don't match any region
     print(f"Location ({lat:.2f}, {lon:.2f}) not matched to specific region - using 1000mm default")
+    return 1000
     return 1000
 
 def get_location_specific_rainfall_fallback(lat, lon):
