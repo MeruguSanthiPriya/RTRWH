@@ -86,6 +86,7 @@
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
             max-width: 200px;
+            cursor: move; /* Add move cursor to indicate draggable */
         }
         .legend h4 {
             margin: 0 0 10px;
@@ -358,8 +359,8 @@
                     pointToLayer: (feature, latlng) => {
                         const isUserBubble = feature.properties.isUser;
                         return L.circleMarker(latlng, {
-                            radius: isUserBubble ? 14 : 10,
-                            weight: isUserBubble ? 3 : 1,
+                            radius: isUserBubble ? 20 : 10, /* Increased user bubble size */
+                            weight: isUserBubble ? 4 : 1, /* Increased user bubble border */
                             opacity: 1,
                             fillOpacity: 0.85,
                             color: isUserBubble ? '#22d3ee' : '#333',
@@ -392,7 +393,7 @@
                             const isUserBubble = e.target.feature.properties.isUser;
                             e.target.setStyle({
                                 fillOpacity: 0.85,
-                                weight: isUserBubble ? 3 : 1,
+                                weight: isUserBubble ? 4 : 1, /* Match increased border weight */
                                 color: isUserBubble ? '#22d3ee' : '#333'
                             });
                         });
@@ -598,6 +599,51 @@
                     if (['rainfall','soil','infiltration','aquifer'].includes(key)) {
                         updateMapLayer(key);
                     }
+                }
+            });
+
+            // 7. Draggable Legend Logic
+            const legend = document.getElementById('legend');
+            let isDragging = false;
+            let offsetX, offsetY;
+
+            // On mouse down, record the starting position and set dragging flag
+            legend.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                
+                // Calculate the offset from the top-left corner of the element
+                const rect = legend.getBoundingClientRect();
+                offsetX = e.clientX - rect.left;
+                offsetY = e.clientY - rect.top;
+
+                // We need to switch to using top/left for positioning
+                if (!legend.style.left) {
+                    legend.style.left = `${rect.left}px`;
+                    legend.style.top = `${rect.top}px`;
+                    legend.style.bottom = 'auto'; // Override the initial 'bottom' style
+                }
+                
+                legend.style.cursor = 'grabbing';
+            });
+
+            // On mouse move, if dragging, update the element's position
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                e.preventDefault(); // Prevent text selection while dragging
+
+                // New position is mouse position minus the initial offset
+                const newX = e.clientX - offsetX;
+                const newY = e.clientY - offsetY;
+
+                legend.style.left = `${newX}px`;
+                legend.style.top = `${newY}px`;
+            });
+
+            // On mouse up, stop dragging
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    legend.style.cursor = 'move';
                 }
             });
 
