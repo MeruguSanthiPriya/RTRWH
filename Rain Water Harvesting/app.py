@@ -6,7 +6,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 import os
 import openpyxl
 from fpdf import FPDF, XPos, YPos
-from datetime import datetime
+from datetime import datetime, timedelta
 import bcrypt
 from functools import wraps
 from recommendations import determine_category, calculate_structure_dimensions, estimate_costs_and_payback, get_purification_recommendations, calculate_harvesting_potential
@@ -98,6 +98,15 @@ app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'  # Change this
 # Configure the database file
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://app_user:password@localhost:5432/rtrwh_gis'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Restore session and redirect to property input page
+@app.route('/restore_property_session/<int:entry_id>')
+def restore_property_session(entry_id):
+    user_data = UserInput.query.get_or_404(entry_id)
+    session['latitude'] = user_data.user_lat
+    session['longitude'] = user_data.user_lon
+    session['address'] = user_data.location_name
+    return redirect(url_for('individual_input_page'))
 
 # Initialize the database with the app
 db.init_app(app)
@@ -916,8 +925,8 @@ def financial_analysis():
     # Get detailed cost analysis using the category from comprehensive analysis
     cost_data = estimate_costs_and_payback(
         category_id=comprehensive_analysis['category']['category'],
-        location_type=location_analysis_data.get('location_type', 'urban'),
-        soil_type=location_analysis_data.get('soil_type', 'clay'),
+        location_type=location_analysis_data.get('Location_Type', 'urban'),
+        soil_type=location_analysis_data.get('Soil_Type', 'clay'),
         system_size=comprehensive_analysis['harvesting_potential']['annual_liters']
     )
     
@@ -1312,61 +1321,58 @@ def get_analytics_data():
     Fetches and processes data for the analytics dashboard.
     This version performs aggregation in Python to avoid database-specific syntax.
     """
-    # 1. Signups over time (by month)
-    signups_by_month = {}
-    all_signups = UserInput.query.with_entities(UserInput.created_at).all()
-    for signup in all_signups:
-        # Ensure created_at is a datetime object
-        if isinstance(signup.created_at, datetime):
-            month_key = signup.created_at.strftime('%Y-%m')
-            signups_by_month[month_key] = signups_by_month.get(month_key, 0) + 1
+    # 1. Signups over time (last 30 days)
+    thirty_days_ago = datetime.utcnow().date() - timedelta(days=30)
+    
+    # Query signups in the last 30 days, grouped by date
+    signups_q = db.session.query(
+        db.func.date(UserInput.created_at),
+        db.func.count(UserInput.id)
+    ).filter(db.func.date(UserInput.created_at) >= thirty_days_ago).group_by(db.func.date(UserInput.created_at)).all()
 
-    # Sort by key (date) to ensure chronological order
-    sorted_signups = sorted(signups_by_month.items())
-    signup_labels = [item[0] for item in sorted_signups]
-    signup_values = [item[1] for item in sorted_signups]
+    # Create a dictionary for quick lookup: { 'YYYY-MM-DD': count }
+    signups_by_date = {result[0].strftime('%Y-%m-%d'): result[1] for result in signups_q}
+
+    # Generate labels and data for the last 30 days, filling in zeros for days with no signups
+    signup_labels = []
+    signup_data = []
+    for i in range(31):
+        current_date = thirty_days_ago + timedelta(days=i)
+        date_str = current_date.strftime('%Y-%m-%d')
+        signup_labels.append(date_str)
+        signup_data.append(signups_by_date.get(date_str, 0))
 
     # 2. Property types distribution
     property_types_q = db.session.query(
         UserInput.property_type, 
         db.func.count(UserInput.property_type)
     ).group_by(UserInput.property_type).order_by(db.func.count(UserInput.property_type).desc()).all()
-    property_labels = [item[0] if item[0] else 'Not Specified' for item in property_types_q]
-    property_values = [item[1] for item in property_types_q]
+    property_types = sorted(property_types_q, key=lambda x: x[1], reverse=True)
 
-    # 3. Average rooftop area by property type
-    avg_rooftop_q = db.session.query(
-        UserInput.property_type,
-        db.func.avg(UserInput.rooftop_area)
-    ).group_by(UserInput.property_type).all()
-    avg_rooftop_labels = [item[0] if item[0] else 'Not Specified' for item in avg_rooftop_q]
-    avg_rooftop_values = [round(item[1], 2) if item[1] else 0 for item in avg_rooftop_q]
+    # 3. Roof types distribution
+    roof_type_counts = db.session.query(
+        UserInput.roof_type,
+        db.func.count(UserInput.roof_type)
+    ).group_by(UserInput.roof_type).order_by(db.func.count(UserInput.roof_type).desc()).all()
+    roof_types = roof_type_counts
 
     # 4. Geographic distribution (top 10 cities)
-    top_cities_q = db.session.query(
+    top_locations_q = db.session.query(
         UserInput.location_name,
         db.func.count(UserInput.location_name)
     ).group_by(UserInput.location_name).order_by(db.func.count(UserInput.location_name).desc()).limit(10).all()
-    city_labels = [item[0] for item in top_cities_q]
-    city_values = [item[1] for item in top_cities_q]
+    top_locations = [(loc[0], loc[1]) for loc in top_locations_q]
+    geo_labels = [loc[0] for loc in top_locations]
+    geo_data = [loc[1] for loc in top_locations]
 
     return {
-        'signups_over_time': {
-            'labels': signup_labels,
-            'data': signup_values
-        },
-        'property_type_distribution': {
-            'labels': property_labels,
-            'data': property_values
-        },
-        'avg_rooftop_area': {
-            'labels': avg_rooftop_labels,
-            'data': avg_rooftop_values
-        },
-        'geographic_distribution': {
-            'labels': city_labels,
-            'data': city_values
-        }
+        'signups_over_time': {'labels': signup_labels, 'data': signup_data},
+        'geographic_distribution': {'labels': geo_labels, 'data': geo_data},
+        'property_type_distribution': {'labels': [pt for pt, c in property_types if pt], 'data': [c for pt, c in property_types if pt]},
+        'roof_type_distribution': {'labels': [rt for rt, c in roof_types if rt], 'data': [c for rt, c in roof_types if rt]},
+        'location_distribution': top_locations,
+        'property_types': property_types,
+        'roof_types': roof_types,
     }
 
 @app.route('/admin/analytics')
@@ -1551,6 +1557,7 @@ def get_live_weather_data(lat, lon, api_key):
     # Default fallback if coordinates don't match any region
     print(f"Location ({lat:.2f}, {lon:.2f}) not matched to specific region - using 1000mm default")
     return 1000
+    return 1000
 
 def get_location_specific_soil_fallback(lat, lon):
     """
@@ -1734,9 +1741,9 @@ def get_api_data(lat, lon):
             "distance": 0,  # Not stored in DB
             "Runoff_Coefficient": 0.85,
             "Water_Cost_per_Liter": existing_data.water_cost_per_liter,
-            "Aquifer_Material_State": "Unknown",  # Would need additional query
-            "Aquifer_Material_Type": "Unknown",
-            "Aquifer_Material_Area": 0,
+            "Aquifer_Material_State": "India",  # Default fallback
+            "Aquifer_Material_Type": "Alluvial",
+            "Aquifer_Material_Area": 10000000,
         }
 
     print(f"Fetching fresh API data for location ({lat}, {lon})")
@@ -1755,14 +1762,25 @@ def get_api_data(lat, lon):
 
     # 3. Get fallback data from the database for groundwater, aquifer, etc.
     fallback_data = get_nearest_geo_data_from_db(lat, lon)
+    
+    # Check if there are nearby groundwater stations
+    nearby_stations_count = check_nearby_groundwater_stations(lat, lon, radius_km=200)
+    
     if not fallback_data:
         # If DB lookup fails, create a default fallback structure
+        remarks_msg = f'API data - {nearby_stations_count} nearby groundwater stations found' if nearby_stations_count > 0 else 'API data - no nearby station data'
         fallback_data = {
             'groundwater_depth_m': 10, 'aquifer_type': 'Unconfined', 'aquifer_depth_min_m': 10,
             'aquifer_depth_max_m': 30, 'aquifer_thickness_m': 20, 'water_quality': 'Good',
-            'remarks': 'API data - no nearby station data', 'region_name': f'Location ({lat:.4f}, {lon:.4f})', 'distance': 0,
+            'remarks': remarks_msg, 'region_name': f'Location ({lat:.4f}, {lon:.4f})', 'distance': 0,
             'water_cost_per_liter': 0.16
         }
+    else:
+        # Update remarks to reflect actual station availability
+        if nearby_stations_count > 0:
+            fallback_data['remarks'] = f'Database data - {nearby_stations_count} nearby groundwater stations found'
+        else:
+            fallback_data['remarks'] = 'Database data - no nearby groundwater stations'
 
     # 4. Get aquifer material data from PostGIS
     aquifer_data = get_aquifer_material_at_location(lat, lon)
@@ -1788,9 +1806,9 @@ def get_api_data(lat, lon):
         "Runoff_Coefficient": 0.85, # Default, can be adjusted based on roof type later
         "Water_Cost_per_Liter": fallback_data.get('water_cost_per_liter', 0.16),
         # --- New PostGIS aquifer data ---
-        "Aquifer_Material_State": aquifer_data.get('state_name', 'Unknown') if aquifer_data.get('found') else 'Not Available',
-        "Aquifer_Material_Type": aquifer_data.get('aquifer_type', 'Unknown') if aquifer_data.get('found') else 'Not Available',
-        "Aquifer_Material_Area": aquifer_data.get('area', 0) if aquifer_data.get('found') else 0,
+        "Aquifer_Material_State": aquifer_data.get('state_name', 'India') if aquifer_data.get('found') else 'India',
+        "Aquifer_Material_Type": aquifer_data.get('aquifer_type', 'Alluvial') if aquifer_data.get('found') else 'Alluvial',
+        "Aquifer_Material_Area": aquifer_data.get('area', 10000000) if aquifer_data.get('found') else 10000000,
     }
 
     # 6. Save the API data to database for future use
@@ -1876,6 +1894,31 @@ def get_api_data(lat, lon):
 #         except Exception as e:
 #             print(f"An error occurred during CSV import: {e}")
 #             db.session.rollback()
+
+def check_nearby_groundwater_stations(lat, lon, radius_km=200):
+    """
+    Check how many groundwater stations are within the specified radius of a location.
+    Returns the count of nearby stations.
+    """
+    try:
+        from models import GroundWaterLevelStation
+        from sqlalchemy import func
+        
+        point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), 4326)
+        count_query = db.session.query(func.count(GroundWaterLevelStation.id)).filter(
+            func.ST_DWithin(
+                GroundWaterLevelStation.geometry.cast(db.text('geography')),
+                point.cast(db.text('geography')),
+                radius_km * 1000
+            )
+        )
+        
+        nearby_count = count_query.scalar()
+        return nearby_count or 0
+        
+    except Exception as e:
+        print(f"Error checking nearby groundwater stations: {e}")
+        return 0
 
 def get_nearest_geo_data_from_db(lat, lon):
     """

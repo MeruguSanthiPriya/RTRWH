@@ -326,14 +326,14 @@
       }
     });
     
-    // Average Rooftop Area Chart
+    // Roof Types Chart
     const roofCtx = document.getElementById('roofChart').getContext('2d');
     new Chart(roofCtx, {
       type: 'pie',
       data: {
-        labels: {{ analytics.avg_rooftop_area.labels | tojson | safe }},
+        labels: {{ analytics.roof_type_distribution.labels | tojson | safe }},
         datasets: [{
-          data: {{ analytics.avg_rooftop_area.data | tojson | safe }},
+          data: {{ analytics.roof_type_distribution.data | tojson | safe }},
           backgroundColor: [
             'rgba(251, 146, 60, 0.8)',
             'rgba(168, 85, 247, 0.8)',

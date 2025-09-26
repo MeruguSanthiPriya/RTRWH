@@ -100,139 +100,6 @@ CATEGORIES = [
                 ('infiltration_rate', lambda v: v < 5)
             ]
         }
-    ),
-    RecommendationCategory(
-        category_id=7,
-        name='Urban High-Rise Rooftop System',
-        description='Multi-story buildings, condominiums, and urban residential complexes with limited ground space',
-        recommended_structures=['Elevated storage tanks (5,000–20,000 liters)', 'Rooftop recharge systems', 'Modular filtration units', 'Pressure booster systems'],
-        recharge_feasible=True,
-        criteria={
-            'roof_area': lambda v: v > 200,
-            'open_space': lambda v: v < 50,  # Limited ground space
-            'rainfall': lambda v: v > 600,
-            'building_type': lambda v: v.lower() in ['apartment', 'condominium', 'high-rise', 'multi-story']
-        }
-    ),
-    RecommendationCategory(
-        category_id=8,
-        name='Commercial Underground Tank System',
-        description='Office buildings, shopping centers, and commercial establishments with high occupancy',
-        recommended_structures=['Large underground tanks (10,000–50,000 liters)', 'Advanced filtration systems', 'Dual plumbing systems', 'Water quality monitoring'],
-        recharge_feasible=True,
-        criteria={
-            'roof_area': lambda v: 500 <= v <= 5000,
-            'occupancy': lambda v: v > 50,  # People per day
-            'water_demand': lambda v: v.lower() in ['high', 'commercial'],
-            'rainfall': lambda v: v > 700
-        }
-    ),
-    RecommendationCategory(
-        category_id=9,
-        name='Educational Institution System',
-        description='Schools, colleges, universities with large catchment areas and educational water use',
-        recommended_structures=['Large storage tanks (20,000–100,000 liters)', 'Educational demonstration systems', 'Greywater integration', 'Student participation features'],
-        recharge_feasible=True,
-        criteria={
-            'roof_area': lambda v: 1000 <= v <= 10000,
-            'open_space': lambda v: 100 <= v <= 1000,
-            'building_type': lambda v: v.lower() in ['school', 'college', 'university', 'educational'],
-            'rainfall': lambda v: v > 600
-        }
-    ),
-    RecommendationCategory(
-        category_id=10,
-        name='Healthcare Sterile Storage System',
-        description='Hospitals, clinics, medical centers requiring high water quality standards',
-        recommended_structures=['Sterile storage systems (5,000–30,000 liters)', 'Advanced multi-stage filtration', 'UV disinfection', 'Emergency backup systems', 'Water quality testing labs'],
-        recharge_feasible=True,
-        criteria={
-            'roof_area': lambda v: 500 <= v <= 2000,
-            'water_quality_required': lambda v: v.lower() in ['drinking', 'medical', 'sterile'],
-            'building_type': lambda v: v.lower() in ['hospital', 'clinic', 'medical', 'healthcare'],
-            'rainfall': lambda v: v > 800
-        }
-    ),
-    RecommendationCategory(
-        category_id=11,
-        name='Industrial Process Water System',
-        description='Factories, warehouses, manufacturing facilities with process water needs',
-        recommended_structures=['Large industrial tanks (50,000–200,000 liters)', 'Pre-treatment systems', 'Process water integration', 'Sludge management systems'],
-        recharge_feasible=True,
-        criteria={
-            'roof_area': lambda v: 2000 <= v <= 50000,
-            'water_usage': lambda v: v.lower() in ['industrial', 'process', 'manufacturing'],
-            'open_space': lambda v: 200 <= v <= 2000,
-            'rainfall': lambda v: v > 600
-        }
-    ),
-    RecommendationCategory(
-        category_id=12,
-        name='Community Shared Tank System',
-        description='Village communities, small settlements with shared water systems',
-        recommended_structures=['Community storage tanks (10,000–50,000 liters)', 'Shared recharge structures', 'Village-level distribution', 'Community maintenance programs'],
-        recharge_feasible=True,
-        criteria={
-            'roof_area': lambda v: 200 <= v <= 2000,  # Combined village roofs
-            'population': lambda v: 50 <= v <= 1000,
-            'location_type': lambda v: v.lower() in ['rural', 'village', 'community'],
-            'rainfall': lambda v: v > 500
-        }
-    ),
-    RecommendationCategory(
-        category_id=13,
-        name='Coastal Elevated Storage System',
-        description='Coastal areas and islands with saline groundwater and specific water challenges',
-        recommended_structures=['Elevated storage tanks (2,000–10,000 liters)', 'Saltwater intrusion barriers', 'Corrosion-resistant materials', 'Desalination integration'],
-        recharge_feasible=False,  # Limited recharge due to saline water
-        criteria={
-            'location_type': lambda v: v.lower() in ['coastal', 'island', 'beach', 'marine'],
-            'gw_quality': lambda v: v.lower() in ['saline', 'brackish', 'coastal'],
-            'rainfall': lambda v: v > 800,  # Often high rainfall in coastal areas
-            'roof_area': lambda v: 50 <= v <= 500
-        }
-    ),
-    RecommendationCategory(
-        category_id=14,
-        name='Green Building Integrated System',
-        description='Sustainable buildings, green certified structures with integrated environmental systems',
-        recommended_structures=['Green roof integration', 'Permeable paving connection', 'Solar-powered pumps', 'Smart monitoring systems', 'Biodiversity features'],
-        recharge_feasible=True,
-        criteria={
-            'building_certification': lambda v: v.lower() in ['green', 'leed', 'eco', 'sustainable'],
-            'roof_type': lambda v: v.lower() in ['green', 'vegetated', 'eco-roof'],
-            'open_space': lambda v: v > 20,
-            'rainfall': lambda v: v > 600
-        }
-    ),
-    RecommendationCategory(
-        category_id=15,
-        name='Retrofit Compact System',
-        description='Modifying existing buildings without RWH systems to add rainwater harvesting',
-        recommended_structures=['Compact storage solutions (1,000–5,000 liters)', 'Minimal excavation recharge', 'Integration with existing plumbing', 'Non-invasive installation methods'],
-        recharge_feasible=True,
-        criteria={
-            'building_age': lambda v: (
-                (isinstance(v, (int, float)) and v > 10) or
-                (isinstance(v, str) and v.lower() in ['old', 'heritage', 'existing'])
-            ),  # Existing buildings (numeric years or categorical)
-            'modification_type': lambda v: v.lower() in ['retrofit', 'existing', 'modification'],
-            'space_constraints': lambda v: v.lower() in ['limited', 'constrained', 'urban'],
-            'roof_area': lambda v: 50 <= v <= 1000
-        }
-    ),
-    RecommendationCategory(
-        category_id=16,
-        name='Emergency Portable System',
-        description='Temporary or emergency water systems for disaster-affected areas',
-        recommended_structures=['Portable storage tanks (500–5,000 liters)', 'Quick-deploy filtration', 'Mobile recharge systems', 'Temporary distribution networks'],
-        recharge_feasible=True,
-        criteria={
-            'usage_type': lambda v: v.lower() in ['emergency', 'disaster', 'relief', 'temporary'],
-            'deployment_time': lambda v: v.lower() in ['urgent', 'emergency', 'quick'],
-            'rainfall': lambda v: v > 400,  # Can work with lower rainfall in emergencies
-            'population_served': lambda v: v > 20
-        }
     )
 ]
 
@@ -398,47 +265,6 @@ def _is_close_match(key, value, category_id):
             'open_space': (0, 6),   # Very limited space
             'rainfall': (0, 600),   # Very low rainfall
             'infiltration_rate': (0, 6), # Poor infiltration
-        },
-        7: {  # Category 7: Urban High-Rise / Apartment Complex
-            'roof_area': (160, float('inf')), # Large roof areas
-            'open_space': (0, 60),   # Very limited ground space
-            'rainfall': (480, float('inf')), # Urban areas often have varied rainfall
-        },
-        8: {  # Category 8: Commercial / Office Building System
-            'roof_area': (400, 6000), # Extended commercial roof ranges
-            'rainfall': (560, float('inf')), # Commercial areas
-        },
-        9: {  # Category 9: Educational Institution System
-            'roof_area': (800, 12000), # Large educational buildings
-            'open_space': (80, 1200),  # School grounds
-            'rainfall': (480, float('inf')), # Educational institutions
-        },
-        10: {  # Category 10: Healthcare Facility System
-            'roof_area': (400, 2400), # Hospital roof ranges
-            'rainfall': (640, float('inf')), # Healthcare facilities
-        },
-        11: {  # Category 11: Industrial / Manufacturing System
-            'roof_area': (1600, 60000), # Very large industrial roofs
-            'open_space': (160, 2400),  # Industrial complexes
-            'rainfall': (480, float('inf')), # Industrial areas
-        },
-        12: {  # Category 12: Rural Village / Community System
-            'roof_area': (160, 2400), # Combined village roofs
-            'rainfall': (400, float('inf')), # Rural areas
-        },
-        13: {  # Category 13: Coastal / Island System
-            'roof_area': (40, 600),  # Coastal property ranges
-            'rainfall': (640, float('inf')), # Coastal areas often high rainfall
-        },
-        14: {  # Category 14: Green Building / Eco-Friendly System
-            'open_space': (16, float('inf')), # Green buildings have space
-            'rainfall': (480, float('inf')), # Eco-friendly buildings
-        },
-        15: {  # Category 15: Retrofit / Existing Building System
-            'roof_area': (40, 1200), # Retrofit ranges
-        },
-        16: {  # Category 16: Emergency / Disaster Relief System
-            'rainfall': (320, float('inf')), # Can work with lower rainfall in emergencies
         }
     }
 
@@ -447,107 +273,6 @@ def _is_close_match(key, value, category_id):
 
     min_val, max_val = close_ranges[category_id][key]
     return min_val <= value <= max_val
-    """
-    Enhanced category determination using scoring and multi-criteria analysis.
-
-    Returns primary recommendation + alternatives with confidence scores.
-    """
-    inputs = {
-        'roof_area': roof_area, 'open_space': open_space, 'rainfall': rainfall,
-        'soil_type': soil_type.lower() if soil_type else 'unknown',
-        'gw_depth': gw_depth, 'infiltration_rate': infiltration_rate
-    }
-
-    # User preferences (optional) - complexity only
-    preferences = user_preferences or {}
-    complexity_preference = preferences.get('complexity', 'balanced')  # 'simple', 'balanced', 'advanced'
-
-    category_scores = []
-
-    for category in CATEGORIES:
-        score = 0
-        match_factors = []
-        mismatch_factors = []
-
-        # Evaluate each criterion
-        if 'or' in category.criteria:
-            # OR logic - any matching criterion gives points
-            or_matches = []
-            for key, check_func in category.criteria['or']:
-                if key in inputs and check_func(inputs[key]):
-                    or_matches.append(key)
-                    score += 30  # Points for OR match
-
-            if or_matches:
-                match_factors.extend([f"Critical factor: {factor}" for factor in or_matches])
-            else:
-                mismatch_factors.append("No critical factors match")
-                score -= 50  # Penalty for OR categories that don't match
-        else:
-            # AND logic - flexible matching with weighted scoring
-            total_criteria = len(category.criteria)
-            matched_criteria = 0
-            partial_matches = 0  # Criteria that are "close" to matching
-            failed_criteria = 0
-
-            for key, check_func in category.criteria.items():
-                if key in inputs:
-                    value = inputs[key]
-                    if check_func(value):
-                        matched_criteria += 1
-                        score += 25  # Full points for matching criterion
-                        match_factors.append(f"{key}: {value}")
-                    else:
-                        # Check for "close" matches (within 20% of boundary)
-                        if _is_close_match(key, value, category.category_id):
-                            partial_matches += 1
-                            score += 10  # Partial points for close matches
-                            match_factors.append(f"{key}: {value} (close match)")
-                        else:
-                            failed_criteria += 1
-                            score -= 15  # Reduced penalty for failed criteria
-                            mismatch_factors.append(f"{key}: {value} (expected different range)")
-                else:
-                    score -= 5  # Reduced penalty for missing data
-
-            # Bonus for complete or near-complete matches
-            if matched_criteria == total_criteria and failed_criteria == 0:
-                score += 25  # Complete match bonus
-                match_factors.append("Complete criteria match")
-            elif matched_criteria + partial_matches >= total_criteria - 1 and failed_criteria <= 1:
-                score += 10  # Near-complete match bonus
-                match_factors.append("Near-complete criteria match")
-
-        # Adjust score based on complexity preference only
-        if complexity_preference == 'simple' and not category.recharge_feasible:
-            score += 10  # Prefer storage-only for simple maintenance
-        elif complexity_preference == 'advanced' and category.recharge_feasible:
-            score += 10  # Prefer recharge systems for advanced users
-
-        # Calculate confidence percentage
-        max_possible_score = 100
-        confidence = min(100, max(0, (score / max_possible_score) * 100))
-
-        category_scores.append({
-            'category': category,
-            'score': score,
-            'confidence': round(confidence, 1),
-            'match_factors': match_factors,
-            'mismatch_factors': mismatch_factors,
-            'recommendation_reason': _generate_recommendation_reason(category, match_factors, mismatch_factors)
-        })
-
-    # Sort by score (highest first)
-    category_scores.sort(key=lambda x: x['score'], reverse=True)
-
-    # Return top recommendation with alternatives
-    result = {
-        'primary': category_scores[0],
-        'alternatives': category_scores[1:3],  # Top 2 alternatives
-        'all_scores': category_scores  # For debugging/analysis
-    }
-
-    return result
 
 
 def _generate_recommendation_reason(category, match_factors, mismatch_factors):
@@ -572,8 +297,6 @@ def _generate_recommendation_reason(category, match_factors, mismatch_factors):
 
     return ". ".join(reasons)
 
-
-    return result
 
 def calculate_harvesting_potential(roof_area_m2, rainfall_mm, roof_type):
     """
@@ -722,6 +445,16 @@ def estimate_costs_and_payback(category_id: int, location_type: str = 'urban', s
     Returns:
         Dictionary with detailed cost breakdown and financial analysis
     """
+    # Normalize soil type to match cost modifier keys
+    soil_type_normalized = soil_type.lower()
+    if soil_type_normalized == 'clayey':
+        soil_type_normalized = 'clay'
+    elif soil_type_normalized == 'sandy':
+        soil_type_normalized = 'sandy'
+    elif soil_type_normalized == 'loamy':
+        soil_type_normalized = 'loamy'
+    else:
+        soil_type_normalized = 'loamy'  # Default fallback
     # Exact category costs from the document
     category_costs = {
         1: {
@@ -835,7 +568,7 @@ def estimate_costs_and_payback(category_id: int, location_type: str = 'urban', s
 
     # Apply modifiers
     location_modifier = cost_modifiers['location'].get(location_type.lower(), 1.0)
-    soil_modifier = cost_modifiers['soil'].get(soil_type.lower(), 1.0)
+    soil_modifier = cost_modifiers['soil'].get(soil_type_normalized, 1.0)
 
     # Calculate final costs with all modifiers
     total_cost = base_cost * location_modifier * soil_modifier * cost_modifiers['materials'] * cost_modifiers['contingency'] * intended_use_modifier

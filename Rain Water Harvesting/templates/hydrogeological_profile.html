@@ -28,11 +28,6 @@
       <div class="value">{{ location_data.Infiltration_Rate_mm_per_hr }} mm/hr</div>
     </div>
     <div class="info-item">
-      <div class="icon"><i class="fas fa-map"></i></div>
-      <div class="label" data-translate-key="aquifer_material_state_label">Aquifer Material State</div>
-      <div class="value">{{ location_data.Aquifer_Material_State }}</div>
-    </div>
-    <div class="info-item">
       <div class="icon"><i class="fas fa-layer-group"></i></div>
       <div class="label" data-translate-key="aquifer_material_type_label">Aquifer Material Type</div>
       <div class="value">{{ location_data.Aquifer_Material_Type }}</div>
@@ -44,9 +39,5 @@
     </div>
   </div>
   
-  <div class="recommendation status-{{ 'fully' if analysis.safety_check.is_safe else 'not' }}">
-    <i class="fas fa-thumbs-up"></i>
-    <strong data-translate-key="remarks_label">Remarks:</strong> {{ location_data.Remarks }}
-  </div>
 </div>
 {% endblock %}

@@ -92,15 +92,15 @@
                         <h3 class="text-xl font-semibold text-primary border-b border-primary pb-2 mb-4"><i class="fas fa-users mr-3"></i>Community Size</h3>
                         <div>
                             <label for="num_households" class="block text-sm font-medium text-secondary mb-2">Number of Households</label>
-                            <input type="number" id="num_households" name="num_households" placeholder="e.g., 50" class="input-field w-full rounded-md p-3" required>
+                            <input type="number" id="num_households" name="num_households" placeholder="e.g., 50" class="input-field w-full rounded-md p-3" required min="0">
                         </div>
                         <div>
                             <label for="avg_household_size" class="block text-sm font-medium text-secondary mb-2">Average People per Household</label>
-                            <input type="number" id="avg_household_size" name="avg_household_size" value="4" class="input-field w-full rounded-md p-3" required>
+                            <input type="number" id="avg_household_size" name="avg_household_size" value="4" class="input-field w-full rounded-md p-3" required min="0">
                         </div>
                         <div>
                             <label for="num_buildings" class="block text-sm font-medium text-secondary mb-2">Total Number of Buildings</label>
-                            <input type="number" id="num_buildings" name="num_buildings" placeholder="e.g., 60" class="input-field w-full rounded-md p-3" required>
+                            <input type="number" id="num_buildings" name="num_buildings" placeholder="e.g., 60" class="input-field w-full rounded-md p-3" required min="0">
                         </div>
                     </div>
 
@@ -109,11 +109,11 @@
                         <h3 class="text-xl font-semibold text-primary border-b border-primary pb-2 mb-4"><i class="fas fa-ruler-combined mr-3"></i>Area & Usage</h3>
                         <div>
                             <label for="avg_rooftop_area" class="block text-sm font-medium text-secondary mb-2">Average Rooftop Area per Building (m²)</label>
-                            <input type="number" id="avg_rooftop_area" name="avg_rooftop_area" placeholder="e.g., 80" class="input-field w-full rounded-md p-3" required>
+                            <input type="number" id="avg_rooftop_area" name="avg_rooftop_area" placeholder="e.g., 80" class="input-field w-full rounded-md p-3" required min="0">
                         </div>
                         <div>
                             <label for="total_open_space" class="block text-sm font-medium text-secondary mb-2">Total Community Open Space (m²)</label>
-                            <input type="number" id="total_open_space" name="total_open_space" placeholder="Parks, common grounds" class="input-field w-full rounded-md p-3" required>
+                            <input type="number" id="total_open_space" name="total_open_space" placeholder="Parks, common grounds" class="input-field w-full rounded-md p-3" required min="0">
                         </div>
                         <div>
                             <label for="intended_use" class="block text-sm font-medium text-secondary mb-2">Primary Intended Use</label>
