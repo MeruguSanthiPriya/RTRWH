@@ -124,9 +124,25 @@
                             <label for="residential" data-translate-key="residential_radio">Residential</label>
                             <input type="radio" id="commercial" name="buildingType" value="commercial">
                             <label for="commercial" data-translate-key="commercial_radio">Commercial</label>
+                            <input type="radio" id="institutional" name="buildingType" value="institutional">
+                            <label for="institutional">Institutional</label>
                             <input type="radio" id="government" name="buildingType" value="government">
                             <label for="government" data-translate-key="government_radio">Government</label>
                         </div>
+                    </div>
+                    <div class="form-group md:col-span-2">
+                        <label for="beneficiaryCategory">Beneficiary Category:</label>
+                        <select id="beneficiaryCategory" name="beneficiaryCategory" required class="w-full glass-input">
+                            <option value="general">General</option>
+                            <option value="community">Community Group / RWA</option>
+                            <option value="institution">Educational Institution</option>
+                            <option value="farmer">Farmer</option>
+                            <option value="bpl">Below Poverty Line (BPL)</option>
+                            <option value="sc_st">SC/ST Category</option>
+                            <option value="women_shg">Women Self-Help Group</option>
+                            <option value="tribal">Tribal Household</option>
+                            <option value="msme">MSME</option>
+                        </select>
                     </div>
                 </div>
                 <div class="text-center mt-6">
@@ -145,15 +161,9 @@
                 <ul id="schemesList" class="list-disc pl-5 space-y-2"></ul>
             </div>
 
-            <div id="nextSteps" class="result-box yellow">
-                <h3 class="text-xl font-semibold mb-2" data-translate-key="next_steps_title">📝 Next Steps:</h3>
-                <p data-translate-key="next_steps_text1">Contact your local municipal office to confirm specific local-level incentives or rebates on property tax.</p>
-                <p data-translate-key="next_steps_text2">Visit the official Jal Shakti Abhiyan website for more information on the nationwide campaign.</p>
-            </div>
-
             <div id="warningMessage" class="result-box red hidden">
-                <h3 class="text-xl font-semibold mb-2" data-translate-key="warning_title">⚠️ Important Warning:</h3>
-                <p data-translate-key="warning_text">Non-compliance with mandatory rainwater harvesting regulations may result in penalties, including fines. Make sure your building plans include a rainwater harvesting system to avoid issues during the inspection process.</p>
+                <h3 class="text-xl font-semibold mb-2" data-translate-key="warning_title">⚠️ Important Note:</h3>
+                <p data-translate-key="warning_text">Non-compliance with mandatory rainwater harvesting regulations can lead to penalties or delays in obtaining occupancy certificates. Please verify the latest regulations with your local municipal authority.</p>
             </div>
         </div>
         <div class="text-center mt-8">

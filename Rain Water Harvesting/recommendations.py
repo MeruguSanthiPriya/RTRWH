@@ -840,15 +840,17 @@ def estimate_costs_and_payback(category_id: int, location_type: str = 'urban', s
     # Calculate final costs with all modifiers
     total_cost = base_cost * location_modifier * soil_modifier * cost_modifiers['materials'] * cost_modifiers['contingency'] * intended_use_modifier
 
-    # Government subsidy (₹10,000 to ₹50,000 based on system size)
-    if system_size <= 1000:
-        subsidy_amount = 10000
-    elif system_size <= 2000:
-        subsidy_amount = 20000
-    elif system_size <= 5000:
-        subsidy_amount = 35000
-    else:
-        subsidy_amount = 50000
+    # --- REALISTIC SUBSIDY CALCULATION ---
+    # Government subsidy is typically a percentage of the total cost, with a maximum cap.
+    # We'll assume a common scheme: 50% of the cost, up to a maximum of ₹50,000.
+    subsidy_percentage = 0.50  # 50%
+    max_subsidy_cap = 50000    # ₹50,000
+
+    # Calculate the potential subsidy amount based on the percentage
+    potential_subsidy = total_cost * subsidy_percentage
+    
+    # The actual subsidy is the lesser of the calculated amount and the maximum cap
+    subsidy_amount = min(potential_subsidy, max_subsidy_cap)
 
     # Net investment after subsidy
     net_investment = total_cost - subsidy_amount

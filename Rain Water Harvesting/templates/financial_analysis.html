@@ -116,6 +116,26 @@
     <strong data-translate-key="disclaimer_label">Disclaimer:</strong> <span data-translate-key="financial_disclaimer_text">All financial figures are estimates. Actual costs and savings may vary. Subsidies are subject to government policies.</span>
   </div>
 
+  <!-- Action Buttons Section -->
+  <div class="action-buttons">
+      <a href="{{ url_for('download_report', entry_id=user_data.id) }}" class="glass-button primary animate-pulse">
+        <i class="fas fa-file-pdf"></i>
+        <span data-translate-key="download_report_btn">Download Full Report</span>
+      </a>
+      <a href="{{ url_for('subsidy_checker_page') }}" class="glass-button">
+        <i class="fas fa-hand-holding-usd"></i>
+        <span>Check for Subsidies</span>
+      </a>
+      <a href="{{ url_for('find_installers_page') }}" class="glass-button">
+        <i class="fas fa-hard-hat"></i>
+        <span>Find an Installer</span>
+      </a>
+      <a href="{{ url_for('interactive_map_page', entry_id=user_data.id) }}" class="glass-button">
+        <i class="fas fa-map-marked-alt"></i>
+        <span>View Interactive Map</span>
+      </a>
+    </div>
+
   <style>
   .cost-breakdown, .roi-projection {
     margin-top: 2rem;
@@ -242,15 +262,6 @@
     }
   }
   </style>
-</div>
-
-<div class="action-buttons">
-    <a href="#" id="download-pdf-link" class="glass-button primary btn-download">
-        <i class="fas fa-file-pdf"></i> <span data-translate-key="download_pdf_button">Download PDF Report</span>
-    </a>
-    <a href="{{ url_for('interactive_map_page') }}" class="glass-button btn-map-view">
-        <i class="fas fa-map-marked-alt"></i> <span data-translate-key="view_interactive_map_button">View Interactive Map</span>
-    </a>
 </div>
 
 <script>

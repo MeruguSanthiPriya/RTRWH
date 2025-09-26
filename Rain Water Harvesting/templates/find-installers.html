@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find Installers - Rainwater Harvesting</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.6;
+            padding: 20px;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.1);
+            border-radius: 20px;
+            padding: 2rem;
+        }
+        .glass-button {
+            background: rgba(34, 211, 238, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(34, 211, 238, 0.3);
+            transition: all 0.3s ease;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .glass-button:hover {
+            background: rgba(34, 211, 238, 0.3);
+        }
+        .resource-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+        .resource-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <!-- Header -->
+    <header class="relative z-10 container mx-auto px-4 py-6 flex justify-between items-center">
+        <a href="{{ url_for('index_page') }}">
+            <img src="{{ url_for('static', filename='img.png') }}" alt="Rooftop Rainwater Harvesting Logo" class="h-12 w-12 rounded-full object-cover">
+        </a>
+    </header>
+
+    <div class="container mx-auto max-w-4xl">
+        <div class="text-center my-8">
+            <h1 class="text-4xl font-bold text-cyan-400">Find Certified Installers & Workers</h1>
+            <p class="text-gray-300 mt-2">Connect with government-verified construction teams and workers for your project.</p>
+        </div>
+
+        <div class="glass-card space-y-8">
+            <div>
+                <h2 class="text-2xl font-semibold text-white mb-3">Why Use Government Portals?</h2>
+                <ul class="list-disc pl-5 space-y-2 text-gray-300">
+                    <li><strong>Reliability & Verification:</strong> Workers registered on these portals have their credentials verified, reducing risks.</li>
+                    <li><strong>Transparency:</strong> Access a national database of workers, ensuring fair wage and skill discovery.</li>
+                    <li><strong>Subsidy Compliance:</strong> Hiring registered workers may be a prerequisite for certain government subsidies or loans.</li>
+                    <li><strong>Direct Connection:</strong> Engage directly with skilled labor without intermediaries, ensuring better communication and cost management.</li>
+                </ul>
+            </div>
+
+            <div class="space-y-6">
+                <!-- e-Shram Portal -->
+                <div class="resource-card">
+                    <h3 class="text-xl font-bold text-cyan-400">e-Shram Portal</h3>
+                    <p class="text-gray-300 mt-2 mb-4">The National Database of Unorganised Workers. A primary resource for finding a wide range of gig workers, including those in construction, plumbing, and general labor suitable for RWH projects.</p>
+                    <a href="https://eshram.gov.in/" target="_blank" class="glass-button">
+                        Visit e-Shram <i class="fas fa-external-link-alt ml-2"></i>
+                    </a>
+                </div>
+
+                <!-- State BOCW Boards -->
+                <div class="resource-card">
+                    <h3 class="text-xl font-bold text-cyan-400">State BOCW Boards</h3>
+                    <p class="text-gray-300 mt-2 mb-4">Each state maintains a Building and Other Construction Workers (BOCW) Welfare Board. These portals are excellent for finding specialized construction workers and teams who are formally registered and eligible for state welfare schemes.</p>
+                    <a href="https://labour.gov.in/bocw-boards" target="_blank" class="glass-button">
+                        Find Your State's BOCW Board <i class="fas fa-external-link-alt ml-2"></i>
+                    </a>
+                </div>
+
+                <!-- National Career Service -->
+                <div class="resource-card">
+                    <h3 class="text-xl font-bold text-cyan-400">National Career Service (NCS)</h3>
+                    <p class="text-gray-300 mt-2 mb-4">A comprehensive job-matching portal by the Ministry of Labour & Employment. You can post job requirements for RWH installation and find skilled professionals, from plumbers to civil engineers, seeking employment.</p>
+                    <a href="https://www.ncs.gov.in/" target="_blank" class="glass-button">
+                        Visit NCS Portal <i class="fas fa-external-link-alt ml-2"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-8">
+            <a href="{{ url_for('index_page') }}" class="glass-button"><i class="fas fa-arrow-left mr-2"></i>Back to Home</a>
+        </div>
+    </div>
+
+</body>
+</html>
