@@ -99,6 +99,15 @@ app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'  # Change this
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://app_user:password@localhost:5432/rtrwh_gis'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Restore session and redirect to property input page
+@app.route('/restore_property_session/<int:entry_id>')
+def restore_property_session(entry_id):
+    user_data = UserInput.query.get_or_404(entry_id)
+    session['latitude'] = user_data.user_lat
+    session['longitude'] = user_data.user_lon
+    session['address'] = user_data.location_name
+    return redirect(url_for('individual_input_page'))
+
 # Initialize the database with the app
 db.init_app(app)
 
