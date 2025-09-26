@@ -910,8 +910,8 @@ def financial_analysis():
     # Get detailed cost analysis using the category from comprehensive analysis
     cost_data = estimate_costs_and_payback(
         category_id=comprehensive_analysis['category']['category'],
-        location_type=location_analysis_data.get('location_type', 'urban'),
-        soil_type=location_analysis_data.get('soil_type', 'clay'),
+        location_type=location_analysis_data.get('Location_Type', 'urban'),
+        soil_type=location_analysis_data.get('Soil_Type', 'clay'),
         system_size=comprehensive_analysis['harvesting_potential']['annual_liters']
     )
     
@@ -1704,9 +1704,9 @@ def get_api_data(lat, lon):
             "distance": 0,  # Not stored in DB
             "Runoff_Coefficient": 0.85,
             "Water_Cost_per_Liter": existing_data.water_cost_per_liter,
-            "Aquifer_Material_State": "Unknown",  # Would need additional query
-            "Aquifer_Material_Type": "Unknown",
-            "Aquifer_Material_Area": 0,
+            "Aquifer_Material_State": "India",  # Default fallback
+            "Aquifer_Material_Type": "Alluvial",
+            "Aquifer_Material_Area": 10000000,
         }
 
     print(f"Fetching fresh API data for location ({lat}, {lon})")
@@ -1725,14 +1725,25 @@ def get_api_data(lat, lon):
 
     # 3. Get fallback data from the database for groundwater, aquifer, etc.
     fallback_data = get_nearest_geo_data_from_db(lat, lon)
+    
+    # Check if there are nearby groundwater stations
+    nearby_stations_count = check_nearby_groundwater_stations(lat, lon, radius_km=200)
+    
     if not fallback_data:
         # If DB lookup fails, create a default fallback structure
+        remarks_msg = f'API data - {nearby_stations_count} nearby groundwater stations found' if nearby_stations_count > 0 else 'API data - no nearby station data'
         fallback_data = {
             'groundwater_depth_m': 10, 'aquifer_type': 'Unconfined', 'aquifer_depth_min_m': 10,
             'aquifer_depth_max_m': 30, 'aquifer_thickness_m': 20, 'water_quality': 'Good',
-            'remarks': 'API data - no nearby station data', 'region_name': f'Location ({lat:.4f}, {lon:.4f})', 'distance': 0,
+            'remarks': remarks_msg, 'region_name': f'Location ({lat:.4f}, {lon:.4f})', 'distance': 0,
             'water_cost_per_liter': 0.16
         }
+    else:
+        # Update remarks to reflect actual station availability
+        if nearby_stations_count > 0:
+            fallback_data['remarks'] = f'Database data - {nearby_stations_count} nearby groundwater stations found'
+        else:
+            fallback_data['remarks'] = 'Database data - no nearby groundwater stations'
 
     # 4. Get aquifer material data from PostGIS
     aquifer_data = get_aquifer_material_at_location(lat, lon)
@@ -1758,9 +1769,9 @@ def get_api_data(lat, lon):
         "Runoff_Coefficient": 0.85, # Default, can be adjusted based on roof type later
         "Water_Cost_per_Liter": fallback_data.get('water_cost_per_liter', 0.16),
         # --- New PostGIS aquifer data ---
-        "Aquifer_Material_State": aquifer_data.get('state_name', 'Unknown') if aquifer_data.get('found') else 'Not Available',
-        "Aquifer_Material_Type": aquifer_data.get('aquifer_type', 'Unknown') if aquifer_data.get('found') else 'Not Available',
-        "Aquifer_Material_Area": aquifer_data.get('area', 0) if aquifer_data.get('found') else 0,
+        "Aquifer_Material_State": aquifer_data.get('state_name', 'India') if aquifer_data.get('found') else 'India',
+        "Aquifer_Material_Type": aquifer_data.get('aquifer_type', 'Alluvial') if aquifer_data.get('found') else 'Alluvial',
+        "Aquifer_Material_Area": aquifer_data.get('area', 10000000) if aquifer_data.get('found') else 10000000,
     }
 
     # 6. Save the API data to database for future use
@@ -1846,6 +1857,31 @@ def get_api_data(lat, lon):
 #         except Exception as e:
 #             print(f"An error occurred during CSV import: {e}")
 #             db.session.rollback()
+
+def check_nearby_groundwater_stations(lat, lon, radius_km=200):
+    """
+    Check how many groundwater stations are within the specified radius of a location.
+    Returns the count of nearby stations.
+    """
+    try:
+        from models import GroundWaterLevelStation
+        from sqlalchemy import func
+        
+        point = func.ST_SetSRID(func.ST_MakePoint(lon, lat), 4326)
+        count_query = db.session.query(func.count(GroundWaterLevelStation.id)).filter(
+            func.ST_DWithin(
+                GroundWaterLevelStation.geometry.cast(db.text('geography')),
+                point.cast(db.text('geography')),
+                radius_km * 1000
+            )
+        )
+        
+        nearby_count = count_query.scalar()
+        return nearby_count or 0
+        
+    except Exception as e:
+        print(f"Error checking nearby groundwater stations: {e}")
+        return 0
 
 def get_nearest_geo_data_from_db(lat, lon):
     """
