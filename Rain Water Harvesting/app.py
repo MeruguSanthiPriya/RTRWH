@@ -1521,6 +1521,8 @@ def get_live_weather_data(lat, lon, api_key):
             'wind_speed': 5,
             'location_name': 'Unknown'
         }
+
+def get_location_specific_rainfall_fallback(lat, lon):
     """
     Returns location-specific rainfall fallback values based on regional climate patterns in India.
     Uses latitude/longitude to determine the region and return appropriate average rainfall.
@@ -1556,7 +1558,6 @@ def get_live_weather_data(lat, lon, api_key):
 
     # Default fallback if coordinates don't match any region
     print(f"Location ({lat:.2f}, {lon:.2f}) not matched to specific region - using 1000mm default")
-    return 1000
     return 1000
 
 def get_location_specific_soil_fallback(lat, lon):
