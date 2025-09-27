@@ -2,6 +2,12 @@
 {% block title %}Measurement & Purification - {{ super() }}{% endblock %}
 
 {% block content %}
+<div style="margin-bottom: 2rem;">
+    <a href="{{ url_for('results_overview', entry_id=user_data.id) }}" class="glass-button">
+        <i class="fas fa-arrow-left"></i>
+        <span>Back to Overview</span>
+    </a>
+</div>
 <div class="report-card animate-fadeInUp">
   <div class="section-header">
     <div class="section-icon"><i class="fas fa-vial"></i></div>

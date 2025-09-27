@@ -37,23 +37,9 @@
     </div>
     <div class="info-item">
       <div class="icon"><i class="fas fa-filter"></i></div>
-      <div class="label" data-translate-key="infiltration_rate_soil_label">Infiltration Rate (Soil-based)</div>
-      <div class="value">
-        {% if location_data.Soil_Type.lower() == 'gravel' %}
-          >40 mm/hr
-        {% elif location_data.Soil_Type.lower() in ['sand', 'sandy loam'] %}
-          20–30 mm/hr
-        {% elif location_data.Soil_Type.lower() == 'loamy' %}
-          10–20 mm/hr
-        {% elif location_data.Soil_Type.lower() == 'silt loam' %}
-          5–10 mm/hr
-        {% elif location_data.Soil_Type.lower() == 'clay loam' %}
-          3–8 mm/hr
-        {% elif location_data.Soil_Type.lower() == 'clay' %}
-          1–5 mm/hr
-        {% else %}
-          N/A
-        {% endif %}
+      <div class="label" data-translate-key="infiltration_rate_label">Infiltration Rate</div>
+      <div class="value">{{ location_data.Infiltration_Rate_mm_per_hr }} mm/hr</div>
+    </div>
       </div>
     </div>
   </div>

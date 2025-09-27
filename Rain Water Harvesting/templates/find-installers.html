@@ -54,6 +54,10 @@
 
     <!-- Header -->
     <header class="relative z-10 container mx-auto px-4 py-6 flex justify-between items-center">
+        <a href="javascript:history.back()" class="glass-button">
+            <i class="fas fa-arrow-left"></i>
+            <span>Back</span>
+        </a>
         <a href="{{ url_for('index_page') }}">
             <img src="{{ url_for('static', filename='img.png') }}" alt="Rooftop Rainwater Harvesting Logo" class="h-12 w-12 rounded-full object-cover">
         </a>

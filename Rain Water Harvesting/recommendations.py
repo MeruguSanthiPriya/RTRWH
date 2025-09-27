@@ -47,7 +47,7 @@ CATEGORIES = [
     ),
     RecommendationCategory(
         category_id=3,
-        name='Recharge Trench with Storage Tank System',
+        name='Multiple pits with Storage Tank System',
         description='Medium-sized houses with adequate open space',
         recommended_structures=['Storage tank (5,000–15,000 liters)', 'Multiple pits (1–2 m deep) or trench (10–20 m)', 'Filtration and desilting mechanisms'],
         recharge_feasible=True,
