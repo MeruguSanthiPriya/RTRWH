@@ -14,3 +14,5 @@ geopandas
 shapely
 rasterio
 gunicorn
+openpyxl
+
