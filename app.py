@@ -92,12 +92,26 @@ def validate_household_size(size):
 app = Flask(__name__)
 CORS(app)  # Allow cross-origin requests from frontend
 
-# Configure the secret key for sessions
-app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'  # Change this in production
+# Secret key
+app.config['SECRET_KEY'] = os.environ.get(
+    'SECRET_KEY',
+    'your-secret-key-change-in-production'
+)
 
-# Configure the database file
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://app_user:password@localhost:5432/rtrwh_gis'
+# Database URL (Render provides DATABASE_URL)
+db_url = os.environ.get(
+    'DATABASE_URL',  # use DATABASE_URL (Render default)
+    'postgresql://app_user:password@localhost:5432/rtrwh_gis'  # fallback for local dev
+)
+
+# Render sometimes gives postgres:// (SQLAlchemy needs postgresql://)
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
 
 # Restore session and redirect to property input page
 @app.route('/restore_property_session/<int:entry_id>')
