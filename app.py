@@ -92,12 +92,11 @@ def validate_household_size(size):
 app = Flask(__name__)
 CORS(app)  # Allow cross-origin requests from frontend
 
+# Configure the secret key for sessions
+app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'  # Change this in production
 
-# Configure the secret key for sessions from environment variable
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
-
-# Configure the database URI from environment variable
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('SQLALCHEMY_DATABASE_URI', 'postgresql://app_user:password@localhost:5432/rtrwh_gis')
+# Configure the database file
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://app_user:password@localhost:5432/rtrwh_gis'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Restore session and redirect to property input page
@@ -184,12 +183,6 @@ def derive_region_categories(df):
     }
     df_copy['RWH_Category_Name'] = df_copy['RWH_Category'].map(cat_map)
     return df_copy[['Region_Name', 'State', 'Latitude', 'Longitude', 'Rainfall_mm', 'Soil_Type', 'Aquifer_Type', 'Infiltration_Rate_mm_per_hr', 'Groundwater_Depth_m', 'RWH_Category', 'RWH_Category_Name']]
-
-
-@app.route('/find-installers')
-def find_installers_page():
-    """Render the page for finding certified installers."""
-    return render_template('find-installers.html')
 
 
 @app.route('/api/regions_categories')
@@ -1165,35 +1158,6 @@ def download_report(entry_id):
         t['roi']: f"{analysis['cost_analysis']['roi_percentage']}%",
     })
 
-    # --- Section 10: Data Sources and Limitations ---
-    pdf.section_title(t.get('section10_title', "Data Sources & Limitations"))
-    
-    pdf.set_font(pdf.font_name, 'B', 12)
-    pdf.cell(0, 10, t.get('data_sources_subtitle', "Data Sources"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-    pdf.set_font(pdf.font_name, '', 11)
-    
-    sources_text = (
-        "The analysis in this report is based on a combination of user-provided data and publicly available datasets from the following sources:\n"
-        "- **Geospatial Data:** Aquifer boundaries, groundwater levels, and soil characteristics are primarily derived from data provided by the India Water Resources Information System (indiawris.gov.in), a Government of India initiative.\n"
-        "- **Live Weather & Rainfall:** Real-time weather conditions and rainfall estimates are sourced from the OpenWeatherMap API.\n"
-        "- **Soil Properties:** Detailed soil composition data, including clay and sand content, is retrieved from the ISRIC SoilGrids API."
-    )
-    pdf.multi_cell(0, 5, sources_text)
-    pdf.ln(5)
-
-    pdf.set_font(pdf.font_name, 'B', 12)
-    pdf.cell(0, 10, t.get('limitations_subtitle', "Data Limitations"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-    pdf.set_font(pdf.font_name, '', 11)
-    
-    limitations_text = (
-        "Please be aware of the following limitations:\n"
-        "- **Scale and Accuracy:** The geospatial data used is at a regional or national scale. It may not capture fine-grained local variations in soil or groundwater conditions. The recommendations are based on the nearest available data points, which may be several kilometers away from your specific location.\n"
-        "- **Real-Time Data:** Weather and rainfall data are based on real-time models and forecasts, which are subject to change and inherent inaccuracies.\n"
-        "- **Generalization:** The recommendations provided are for advisory purposes only. A detailed on-site survey by a qualified professional is essential before commencing any construction."
-    )
-    pdf.multi_cell(0, 5, limitations_text)
-    pdf.ln(10)
-
     # The .output() method returns a bytearray, which we convert to bytes
     pdf_bytes = bytes(pdf.output())
     response = make_response(pdf_bytes)
@@ -1522,6 +1486,43 @@ def get_live_weather_data(lat, lon, api_key):
             'wind_speed': 5,
             'location_name': 'Unknown'
         }
+    """
+    Returns location-specific rainfall fallback values based on regional climate patterns in India.
+    Uses latitude/longitude to determine the region and return appropriate average rainfall.
+    """
+    # Define regional rainfall patterns (approximate annual averages in mm)
+    # Adjusted boundaries to better cover Indian geography
+    regional_rainfall = {
+        # North India (Delhi, Punjab, Haryana, UP, Rajasthan border areas)
+        'north': {'lat_range': (26, 35), 'lon_range': (70, 85), 'rainfall': 700},
+        # North-East India (Assam, Meghalaya, etc.)
+        'northeast': {'lat_range': (24, 29), 'lon_range': (85, 98), 'rainfall': 2500},
+        # East India (West Bengal, Odisha, Bihar)
+        'east': {'lat_range': (20, 27), 'lon_range': (82, 90), 'rainfall': 1500},
+        # Central India (Madhya Pradesh, Chhattisgarh)
+        'central': {'lat_range': (18, 26), 'lon_range': (75, 85), 'rainfall': 1000},
+        # West India (Maharashtra, Gujarat, Rajasthan west)
+        'west': {'lat_range': (15, 26), 'lon_range': (68, 76), 'rainfall': 1000},
+        # South India (Kerala, Karnataka, Tamil Nadu, Andhra)
+        'south': {'lat_range': (8, 18), 'lon_range': (70, 85), 'rainfall': 2000},
+        # North-West (Rajasthan dry regions)
+        'northwest': {'lat_range': (24, 30), 'lon_range': (70, 75), 'rainfall': 300},
+    }
+
+    # Determine region based on coordinates
+    for region, data in regional_rainfall.items():
+        lat_min, lat_max = data['lat_range']
+        lon_min, lon_max = data['lon_range']
+
+        if lat_min <= lat <= lat_max and lon_min <= lon <= lon_max:
+            rainfall = data['rainfall']
+            print(f"Location ({lat:.2f}, {lon:.2f}) falls in {region} region - using {rainfall}mm rainfall fallback")
+            return rainfall
+
+    # Default fallback if coordinates don't match any region
+    print(f"Location ({lat:.2f}, {lon:.2f}) not matched to specific region - using 1000mm default")
+    return 1000
+    return 1000
 
 def get_location_specific_rainfall_fallback(lat, lon):
     """
@@ -1560,56 +1561,6 @@ def get_location_specific_rainfall_fallback(lat, lon):
     # Default fallback if coordinates don't match any region
     print(f"Location ({lat:.2f}, {lon:.2f}) not matched to specific region - using 1000mm default")
     return 1000
-
-def get_location_specific_soil_fallback(lat, lon):
-    """
-    Returns location-specific soil fallback values based on broad regional soil types in India.
-    This provides a more accurate default when the live API fails.
-    """
-    # Define regional soil patterns (approximate)
-    regional_soils = {
-        # Deccan Plateau - Black Soil (Clayey)
-        'deccan_plateau': {
-            'lat_range': (15, 24), 'lon_range': (73, 82), 
-            'soil': "Black Soil (Clayey)", 'infiltration': 5, 'permeability': "Low"
-        },
-        # Thar Desert - Sandy Soil
-        'thar_desert': {
-            'lat_range': (24, 30), 'lon_range': (68, 75), 
-            'soil': "Desert Soil (Sandy)", 'infiltration': 25, 'permeability': "High"
-        },
-        # East Coast - Red and Laterite Soils
-        'east_coast': {
-            'lat_range': (8, 22), 'lon_range': (78, 85), 
-            'soil': "Red Loam", 'infiltration': 12, 'permeability': "Medium"
-        },
-        # Indo-Gangetic Plain - Alluvial Soil (default for most of North India)
-        'alluvial_plain': {
-            'lat_range': (23, 32), 'lon_range': (75, 88), 
-            'soil': "Alluvial (Loamy)", 'infiltration': 15, 'permeability': "Medium"
-        },
-    }
-
-    # Determine region based on coordinates
-    for region, data in regional_soils.items():
-        lat_min, lat_max = data['lat_range']
-        lon_min, lon_max = data['lon_range']
-
-        if lat_min <= lat <= lat_max and lon_min <= lon <= lon_max:
-            print(f"Location ({lat:.2f}, {lon:.2f}) falls in {region} region - using fallback soil: {data['soil']}")
-            return {
-                "Soil_Type": data['soil'],
-                "Infiltration_Rate_mm_per_hr": data['infiltration'],
-                "Soil_Permability_Class": data['permeability']
-            }
-
-    # Default fallback if no region matches (covers Himalayas, Northeast, etc.)
-    print(f"Location ({lat:.2f}, {lon:.2f}) not matched to specific soil region - using default Loamy soil.")
-    return {
-        "Soil_Type": "Loamy",
-        "Infiltration_Rate_mm_per_hr": 15,
-        "Soil_Permability_Class": "Medium"
-    }
 
 def get_rainfall_from_api(lat, lon, api_key):
     """
@@ -1703,17 +1654,34 @@ def get_soil_data_from_api(lat, lon):
             "Soil_Permability_Class": "High" if infiltration_rate > 15 else "Medium"
         }
     except requests.exceptions.Timeout:
-        print(f"Timeout error fetching soil data from ISRIC for location ({lat}, {lon}). Using regional fallback.")
-        return get_location_specific_soil_fallback(lat, lon)
+        print(f"Timeout error fetching soil data from ISRIC for location ({lat}, {lon})")
+        return {
+            "Soil_Type": "Loamy",
+            "Infiltration_Rate_mm_per_hr": 15,
+            "Soil_Permability_Class": "Medium"
+        }
     except requests.exceptions.ConnectionError:
-        print(f"Connection error fetching soil data from ISRIC for location ({lat}, {lon}). Using regional fallback.")
-        return get_location_specific_soil_fallback(lat, lon)
+        print(f"Connection error fetching soil data from ISRIC for location ({lat}, {lon})")
+        return {
+            "Soil_Type": "Loamy",
+            "Infiltration_Rate_mm_per_hr": 15,
+            "Soil_Permability_Class": "Medium"
+        }
     except requests.exceptions.HTTPError as e:
-        print(f"HTTP error fetching soil data from ISRIC: {e}. Using regional fallback.")
-        return get_location_specific_soil_fallback(lat, lon)
+        print(f"HTTP error fetching soil data from ISRIC: {e}")
+        return {
+            "Soil_Type": "Loamy",
+            "Infiltration_Rate_mm_per_hr": 15,
+            "Soil_Permability_Class": "Medium"
+        }
     except Exception as e:
-        print(f"Unexpected error fetching soil data from ISRIC: {e}. Using regional fallback.")
-        return get_location_specific_soil_fallback(lat, lon)
+        print(f"Unexpected error fetching soil data from ISRIC: {e}")
+        return {
+
+            "Soil_Type": "Loamy",
+            "Infiltration_Rate_mm_per_hr": 15,
+            "Soil_Permability_Class": "Medium"
+        }
 
 def get_api_data(lat, lon):
     """

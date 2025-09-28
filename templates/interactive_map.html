@@ -418,7 +418,7 @@
 
                         const userFeature = {
                             type: 'Feature',
-                            properties: { isUser: true, Region_Name: 'Your Location', State: '-', Rainfall_mm: 1500, Soil_Type: 'Loamy', Aquifer_Type: 'Unconfined', Infiltration_Rate_mm_per_hr: 12 },
+                            properties: { isUser: true, Region_Name: 'Your Location', State: '-', Rainfall_mm: 0, Soil_Type: '-', Aquifer_Type: '-', Infiltration_Rate_mm_per_hr: 0 },
                             geometry: { type: 'Point', coordinates: [lon, lat] }
                         };
                         geoJsonLayer = L.geoJSON([userFeature], {
